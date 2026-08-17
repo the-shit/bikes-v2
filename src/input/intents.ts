@@ -12,6 +12,7 @@ export type Intent = {
   lookY: number;
   fire: boolean;
   melee: boolean;
+  hop: boolean;
   mount: boolean;
 };
 
@@ -24,6 +25,7 @@ export function idleIntent(): Intent {
     lookY: 0,
     fire: false,
     melee: false,
+    hop: false,
     mount: false,
   };
 }

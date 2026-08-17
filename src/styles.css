@@ -13,16 +13,27 @@ body {
   height: 100%;
 }
 
-#fps {
+#fps,
+#hud {
   position: fixed;
-  top: 10px;
-  left: 10px;
   z-index: 2;
   padding: 4px 8px;
-  color: #e8dcc8;
-  background: rgba(12, 10, 8, 0.55);
+  color: #2a2418;
+  background: rgba(255, 248, 230, 0.72);
   font-size: 12px;
   letter-spacing: 0.04em;
   pointer-events: none;
   user-select: none;
+  white-space: pre-line;
+}
+
+#fps {
+  top: 10px;
+  left: 10px;
+}
+
+#hud {
+  bottom: 14px;
+  left: 10px;
+  max-width: min(520px, 90vw);
 }

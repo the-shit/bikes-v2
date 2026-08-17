@@ -1,12 +1,18 @@
 /**
- * Ownership: boot the empty scene + fixed-timestep render loop.
- * Talks via: core/loop and ui/fps only. No gameplay imports.
+ * Ownership: boot Jan Ave slice + intent-driven session + chase cam.
+ * Talks via: session snapshot. No raw key handling.
  * Budget: keep this file under ~300 lines.
  */
 
 import * as THREE from 'three';
 import { advanceLoop, createLoop } from './core/loop';
+import { createSession } from './core/session';
+import { createKeyboardAdapter } from './input/keyboard';
 import { createFpsHud } from './ui/fps';
+import { createHud } from './ui/hud';
+import { loadMesaBake } from './world/osm';
+import { buildJanSlice } from './world/slice';
+import { createWorldView } from './world/view';
 
 const BOOT_ERROR_ID = 'boot-error';
 
@@ -33,55 +39,41 @@ function showBootError(message: string): void {
   el.textContent = message;
 }
 
-function detectFileProtocol(): boolean {
-  if (typeof location !== 'undefined' && location.protocol === 'file:') {
-    showBootError(
-      'Bikes v2 needs a local server. Run: npm install && npm run dev',
-    );
-    return true;
-  }
-  return false;
-}
-
-export function createApp(
+export async function createApp(
   canvas: HTMLCanvasElement,
   fpsEl: HTMLElement,
-): { stop(): void } {
+  hudEl: HTMLElement,
+): Promise<{ stop(): void }> {
+  const bake = await loadMesaBake();
+  const slice = buildJanSlice(bake);
+  const localRiderId = 1;
+  const session = createSession({
+    riders: [{ id: localRiderId, ...slice.spawn }],
+    terrain: slice.terrain,
+    cameraFrame: slice.cameraFrame,
+    blockers: slice.blockers,
+    shamblerPins: slice.shamblerPins,
+  });
+  const view = createWorldView(slice);
+  view.sync(session.snapshot());
+
   const renderer = new THREE.WebGLRenderer({
     canvas,
     antialias: true,
     powerPreference: 'high-performance',
   });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-  renderer.setClearColor(0x1a1410, 1);
+  renderer.setClearColor(0xb8cfe0, 1);
 
   const scene = new THREE.Scene();
-  scene.fog = new THREE.Fog(0x1a1410, 40, 180);
+  scene.background = new THREE.Color(0xb8cfe0);
+  scene.fog = new THREE.Fog(0xc9b89a, 80, 280);
+  scene.add(view.group);
 
-  const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 400);
-  camera.position.set(8, 6, 12);
-  camera.lookAt(0, 0, 0);
-
-  scene.add(new THREE.HemisphereLight(0xc9b89a, 0x3a2a1c, 0.85));
-  const sun = new THREE.DirectionalLight(0xffe2b0, 0.9);
-  sun.position.set(20, 30, 10);
-  scene.add(sun);
-
-  const ground = new THREE.Mesh(
-    new THREE.PlaneGeometry(200, 200),
-    new THREE.MeshStandardMaterial({ color: 0x6b5344, roughness: 1 }),
-  );
-  ground.rotation.x = -Math.PI / 2;
-  scene.add(ground);
-
-  const origin = new THREE.Mesh(
-    new THREE.BoxGeometry(1, 1, 1),
-    new THREE.MeshStandardMaterial({ color: 0xd4a017, roughness: 0.6 }),
-  );
-  origin.position.y = 0.5;
-  scene.add(origin);
-
+  const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 600);
+  const keys = createKeyboardAdapter(window);
   const fps = createFpsHud(fpsEl);
+  const hud = createHud(hudEl);
   const loop = createLoop();
   let last = performance.now();
   let running = true;
@@ -95,8 +87,19 @@ export function createApp(
     camera.updateProjectionMatrix();
   }
 
+  function applyCamera(): void {
+    const rider = session.snapshot().riders.find((r) => r.id === localRiderId);
+    if (!rider) {
+      return;
+    }
+    const { position, lookAt } = rider.camera;
+    camera.position.set(position.x, position.y, position.z);
+    camera.lookAt(lookAt.x, lookAt.y, lookAt.z);
+  }
+  applyCamera();
+
   function tick(dt: number): void {
-    origin.rotation.y += dt;
+    session.tick(dt, { [localRiderId]: keys.sample() });
   }
 
   function frame(now: number): void {
@@ -108,7 +111,11 @@ export function createApp(
     last = now;
     advanceLoop(loop, frameDt, {
       tick,
-      render(_alpha) {
+      render() {
+        const snap = session.snapshot();
+        view.sync(snap);
+        applyCamera();
+        hud.update(snap, localRiderId, loop.fps);
         fps.update(loop.fps);
         renderer.render(scene, camera);
       },
@@ -124,22 +131,30 @@ export function createApp(
       running = false;
       cancelAnimationFrame(raf);
       window.removeEventListener('resize', resize);
+      keys.dispose();
       renderer.dispose();
     },
   };
 }
 
-function boot(): void {
-  if (detectFileProtocol()) {
+async function boot(): Promise<void> {
+  if (typeof location !== 'undefined' && location.protocol === 'file:') {
+    showBootError('Bikes v2 needs a local server. Run: npm install && npm run dev');
     return;
   }
   const canvas = document.getElementById('game');
   const fpsEl = document.getElementById('fps');
-  if (!(canvas instanceof HTMLCanvasElement) || !fpsEl) {
-    showBootError('Missing #game canvas or #fps element.');
+  const hudEl = document.getElementById('hud');
+  if (!(canvas instanceof HTMLCanvasElement) || !fpsEl || !hudEl) {
+    showBootError('Missing #game canvas, #fps, or #hud.');
     return;
   }
-  createApp(canvas, fpsEl);
+  try {
+    await createApp(canvas, fpsEl, hudEl);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    showBootError(`Boot failed: ${msg}`);
+  }
 }
 
-boot();
+void boot();

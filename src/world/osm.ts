@@ -4,12 +4,26 @@
  * Budget: keep this file under ~300 lines.
  */
 
+import type { RoadPoly } from './geo';
+
 export const MESA_MAP_URL = '/data/mesa-az.json';
 
+export type MesaOrigin = {
+  lat: number;
+  lon: number;
+  label?: string;
+};
+
 export type MesaBake = {
-  meta: Record<string, unknown>;
+  meta: {
+    grid: number;
+    halfExtentM: number;
+    origin: MesaOrigin;
+    [key: string]: unknown;
+  };
   elevations: number[];
-  roads: unknown[];
+  elevMin: number;
+  roads: RoadPoly[];
 };
 
 export function parseMesaBake(data: unknown): MesaBake {
@@ -23,20 +37,51 @@ export function parseMesaBake(data: unknown): MesaBake {
   if (!Array.isArray(rec.roads)) {
     throw new Error('mesa bake: roads');
   }
-  const meta =
+  const metaIn =
     rec.meta && typeof rec.meta === 'object'
       ? (rec.meta as Record<string, unknown>)
       : {};
+  const originRaw =
+    metaIn.origin && typeof metaIn.origin === 'object'
+      ? (metaIn.origin as Record<string, unknown>)
+      : {};
+  const roads: RoadPoly[] = rec.roads.map((raw) => {
+    const r = (raw ?? {}) as Record<string, unknown>;
+    const points = Array.isArray(r.points)
+      ? (r.points as number[][]).filter(
+          (p) => Array.isArray(p) && p.length >= 2,
+        )
+      : [];
+    return {
+      id: typeof r.id === 'number' ? r.id : undefined,
+      highway: typeof r.highway === 'string' ? r.highway : 'residential',
+      name: typeof r.name === 'string' ? r.name : null,
+      points,
+    };
+  });
   return {
-    meta,
+    meta: {
+      ...metaIn,
+      grid: Number(metaIn.grid) || 0,
+      halfExtentM: Number(metaIn.halfExtentM) || 900,
+      origin: {
+        lat: Number(originRaw.lat) || 0,
+        lon: Number(originRaw.lon) || 0,
+        label: typeof originRaw.label === 'string' ? originRaw.label : undefined,
+      },
+    },
     elevations: rec.elevations as number[],
-    roads: rec.roads,
+    elevMin: Number(rec.elevMin ?? metaIn.elevMin) || 0,
+    roads,
   };
 }
 
-/** Stub fetch. Parse the bake with parseMesaBake once M1/M3 load over HTTP. */
 export async function loadMesaBake(
-  _url: string = MESA_MAP_URL,
+  url: string = MESA_MAP_URL,
 ): Promise<MesaBake> {
-  return { meta: {}, elevations: [], roads: [] };
+  const res = await fetch(url);
+  if (!res.ok) {
+    throw new Error(`mesa bake: HTTP ${res.status}`);
+  }
+  return parseMesaBake(await res.json());
 }
