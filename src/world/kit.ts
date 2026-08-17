@@ -9,6 +9,8 @@ import { loadHeroGltf } from './heroes';
 
 export const KIT_BIKE_URL = '/models/kit-bike.glb';
 export const KIT_RIDER_URL = '/models/kit-rider.glb';
+/** Likeness stills (issue #12). Rider generator must bind these. */
+export const RIDER_REFS_DIR = 'tools/models/rider/refs';
 
 function findSocket(root: THREE.Object3D, name: string): THREE.Object3D | null {
   let hit: THREE.Object3D | null = null;

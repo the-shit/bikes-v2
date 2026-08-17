@@ -1,6 +1,14 @@
+// Node fs is available in the Vitest node env; tsconfig is browser-typed.
+// @ts-expect-error -- no @types/node in this package
+import { existsSync, readFileSync } from 'node:fs';
 import { Group, Object3D } from 'three';
 import { describe, expect, it } from 'vitest';
-import { KIT_BIKE_URL, KIT_RIDER_URL, snapRiderToBike } from '../src/world/kit';
+import {
+  KIT_BIKE_URL,
+  KIT_RIDER_URL,
+  RIDER_REFS_DIR,
+  snapRiderToBike,
+} from '../src/world/kit';
 
 describe('mesa kit', () => {
   it('points at authored bike and rider glbs', () => {
@@ -23,6 +31,16 @@ describe('mesa kit', () => {
     expect(rider.position.x).toBe(0);
     expect(rider.position.y).toBe(0);
     expect(rider.position.z).toBe(0);
+  });
+
+  it('binds the seated rider to Jordan likeness refs', () => {
+    expect(existsSync(`${RIDER_REFS_DIR}/jordan-face-front.jpg`)).toBe(true);
+    expect(existsSync(`${RIDER_REFS_DIR}/jordan-feet-flipflops.jpg`)).toBe(true);
+    const src = readFileSync('tools/models/kit/rider.py', 'utf8');
+    expect(src).toMatch(/tools\/models\/rider\/refs/);
+    expect(src).toMatch(/beard/i);
+    expect(src).toMatch(/flop/i);
+    expect(src).toMatch(/No helmets/);
   });
 
   it('falls back to 0, 0.96, -0.22 when the seat socket is missing', () => {
