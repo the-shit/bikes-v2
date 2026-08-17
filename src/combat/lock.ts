@@ -122,7 +122,7 @@ export function lockSteerAssist(
   if (!target) {
     return player;
   }
-  const speed = Math.abs(origin.speed ?? 0);
+  const speed = origin.speed ?? 0;
   if (speed < LOCK.minSpeed) {
     return player;
   }
@@ -138,7 +138,7 @@ export function lockSteerAssist(
   const fade = Math.min(1, (speed - LOCK.minSpeed) / 8);
   let nudge = Math.max(-1, Math.min(1, err / 0.9)) * LOCK.assist * fade;
   if (player * nudge < 0) {
-    nudge *= 0.2;
+    nudge = 0;
   }
   const mixed = player + nudge * (1 - Math.abs(player) * 0.55);
   return Math.max(-1, Math.min(1, mixed));

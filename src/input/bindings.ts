@@ -11,7 +11,7 @@ export const DEFAULT_BINDINGS = Object.freeze({
   brake: ['KeyS', 'ArrowDown', 'Space'],
   hop: ['ShiftLeft', 'ShiftRight'],
   melee: ['KeyE'],
-  lock: ['Tab', 'KeyQ'],
+  lock: ['KeyQ'],
   steerLeft: ['KeyA', 'ArrowLeft'],
   steerRight: ['KeyD', 'ArrowRight'],
 });

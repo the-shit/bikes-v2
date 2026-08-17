@@ -24,7 +24,7 @@ export function createHud(el: HTMLElement): Hud {
     </div>
     <div class="ride-line" data-ride></div>
     <div class="lock-banner" data-lock hidden>LOCKED! ★</div>
-    <div class="lock-hint">Tab / Q lock-on</div>
+    <div class="lock-hint">Q lock-on</div>
   `;
   const weapon = el.querySelector('[data-weapon]') as HTMLElement;
   const wepState = el.querySelector('[data-wep-state]') as HTMLElement;

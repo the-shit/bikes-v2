@@ -129,7 +129,7 @@ describe('session combat proof', () => {
     expect(session.snapshot().zombies[0].z).toBeGreaterThan(zAtHit);
   });
 
-  it('Tab-cycles a lock and drops it when the shambler is bonked out', () => {
+  it('Q-cycles a lock and drops it when the shambler is bonked out', () => {
     const session = makeSession([
       { x: 0, z: 6 },
       { x: 2, z: 10 },

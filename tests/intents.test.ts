@@ -42,6 +42,8 @@ describe('intents', () => {
     expect(intent.lock).toBe(false);
     expect(intent.brake).toBe(0);
     setKey(state, 'Tab', true);
+    expect(sampleInput(state).lock).toBe(false);
+    setKey(state, 'KeyQ', true);
     expect(sampleInput(state).lock).toBe(true);
     setKey(state, 'Space', true);
     expect(sampleInput(state).brake).toBe(1);

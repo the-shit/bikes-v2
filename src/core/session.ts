@@ -6,7 +6,7 @@
 
 import { applyDamage, isDead } from '../combat/damage';
 import { FEEDBACK, hitImpulse } from '../combat/feedback';
-import { lockSteerAssist, maintainLock } from '../combat/lock';
+import { lockSteerAssist } from '../combat/lock';
 import { isMeleeActive, markStruck, meleeHits, MELEE } from '../combat/melee';
 import { RAM, ramDamage, ramHits } from '../combat/ram';
 import { idleIntent, type Intent } from '../input/intents';
@@ -19,6 +19,7 @@ import { createBus, type EventBus } from './events';
 import {
   createRider,
   decayRiderFx,
+  holdRiderLock,
   stepRiderCamera,
   stepRiderLock,
   stepRiderMotion,
@@ -194,15 +195,14 @@ export function createSession(opts: {
         return { ...next, y: heightAt(next.x, next.z) };
       });
 
-      riders = riders.map((rider) => {
-        const held = maintainLock(rider.lock, rider.bike, zombies, 0);
-        return stepRiderCamera(
-          { ...rider, lock: held.lock },
+      riders = riders.map((rider) =>
+        stepRiderCamera(
+          holdRiderLock(rider, zombies, 0),
           dt,
           opts.cameraFrame,
           opts.blockers,
-        );
-      });
+        ),
+      );
     },
     snapshot() {
       return {

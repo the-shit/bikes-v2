@@ -67,8 +67,9 @@ describe('lock-on', () => {
     expect(fullLeft).toBeGreaterThan(0.85);
     expect(fullLeft).toBeLessThanOrEqual(1);
     const opposite = lockSteerAssist(origin, { x: -3, z: 10 }, 1);
-    expect(opposite).toBeGreaterThan(0.7);
+    expect(opposite).toBe(1);
     expect(lockSteerAssist({ ...origin, speed: 0 }, target, 0)).toBe(0);
+    expect(lockSteerAssist({ ...origin, speed: -8 }, target, 0)).toBe(0);
     expect(lockSteerAssist(origin, null, 0.4)).toBe(0.4);
     expect(lockSteerAssist(origin, { x: 10, z: 0 }, 0)).toBe(0);
   });

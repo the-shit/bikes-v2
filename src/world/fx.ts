@@ -175,6 +175,7 @@ export function syncLockFx(
   root: THREE.Group,
   locked: boolean,
   snapT: number,
+  elapsed: number,
 ): void {
   const g = root.getObjectByName('lock-reticle');
   if (!g) {
@@ -184,9 +185,12 @@ export function syncLockFx(
   if (!locked) {
     return;
   }
-  const wobble = snapT > 0 ? 1 + 0.22 * Math.sin(snapT * 42) : 1 + 0.05 * Math.sin(snapT + 1);
+  const wobble =
+    snapT > 0
+      ? 1 + 0.22 * Math.sin(snapT * 42)
+      : 1 + 0.05 * Math.sin(elapsed * 6);
   g.scale.setScalar(wobble);
-  g.rotation.y += 0.04 + snapT * 0.2;
+  g.rotation.y = elapsed * 1.4 + snapT * 2;
   for (let i = 0; i < 4; i += 1) {
     const star = g.getObjectByName(`lock-star-${i}`);
     if (!star) {

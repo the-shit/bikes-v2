@@ -141,25 +141,35 @@ export function stepRiderMotion(
   };
 }
 
+export function holdRiderLock(
+  rider: Rider,
+  targets: readonly LockTarget[],
+  dt: number,
+): Rider {
+  const held = maintainLock(rider.lock, rider.bike, targets, dt);
+  let next = { ...rider, lock: held.lock };
+  if (held.lost === 'range') {
+    next = withToast(next, 'slipped away!', 0.9);
+  }
+  return next;
+}
+
 export function stepRiderLock(
   rider: Rider,
   intent: Intent,
   targets: readonly LockTarget[],
   dt: number,
 ): Rider {
-  let lock = rider.lock;
   let next = rider;
   if (intent.lock && !rider.prevLock) {
-    lock = cycleLock(lock, rider.bike, targets);
+    const lock = cycleLock(rider.lock, rider.bike, targets);
     if (lock.targetId != null) {
-      next = withToast(next, 'LOCKED!', 1.15);
+      next = withToast({ ...next, lock }, 'LOCKED!', 1.15);
+    } else {
+      next = { ...next, lock };
     }
   }
-  const held = maintainLock(lock, rider.bike, targets, dt);
-  if (held.lost === 'range') {
-    next = withToast(next, 'slipped away!', 0.9);
-  }
-  return { ...next, lock: held.lock, prevLock: intent.lock };
+  return { ...holdRiderLock(next, targets, dt), prevLock: intent.lock };
 }
 
 export function decayRiderFx(rider: Rider, dt: number): Rider {
