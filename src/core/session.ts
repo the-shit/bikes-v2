@@ -1,65 +1,59 @@
 /**
- * Ownership: M1 playable tick — intents in, poses out. No WebGL.
- * Talks via: Intent + events. Composition root for bike/combat/zombies.
+ * Ownership: sim tick — riders + world. No WebGL, no LLM.
+ * Talks via: per-rider Intent map. World / rider / view stay separable.
  * Budget: keep this file under ~300 lines.
  */
 
-import { createAirState, stepAir, type AirState } from '../bike/air';
-import {
-  createBikeState,
-  stepBike,
-  type BikeState,
-} from '../bike/physics';
 import { applyDamage, isDead } from '../combat/damage';
-import {
-  createMelee,
-  isMeleeActive,
-  meleeHits,
-  MELEE,
-  stepMelee,
-  trySwing,
-  type MeleeState,
-} from '../combat/melee';
+import { isMeleeActive, meleeHits, MELEE } from '../combat/melee';
 import { RAM, ramDamage, ramHits } from '../combat/ram';
-import type { Intent } from '../input/intents';
-import {
-  clampCameraToBlockers,
-  desiredCamera,
-  stepCamera,
-  type CameraFrame,
-  type CameraState,
-} from '../world/camera';
+import { idleIntent, type Intent } from '../input/intents';
+import type { CameraFrame } from '../world/camera';
 import type { Box3 } from '../world/home';
 import type { Terrain } from '../world/terrain';
 import { stepZombieAi, type Shambler } from '../zombies/ai';
 import { seedShamblers } from '../zombies/spawn';
 import { createBus, type EventBus } from './events';
+import {
+  createRider,
+  stepRiderCamera,
+  stepRiderMotion,
+  withToast,
+  type Rider,
+  type RiderId,
+  type RiderSpawn,
+} from './rider';
 
 export type HitEvent = {
+  riderId: RiderId;
   id: number;
   kind: 'melee' | 'ram';
   damage: number;
   killed: boolean;
 };
 
+export type RiderSnapshot = Omit<Rider, 'prevMelee' | 'prevHop' | 'toastT'>;
+
 export type SessionSnapshot = {
-  bike: BikeState;
-  air: AirState;
-  melee: MeleeState;
+  riders: RiderSnapshot[];
   zombies: Shambler[];
-  camera: CameraState;
-  toast: string;
-  kills: number;
 };
 
 export type Session = {
   bus: EventBus;
-  tick(dt: number, intent: Intent): void;
+  tick(dt: number, intents: Readonly<Record<RiderId, Intent>>): void;
   snapshot(): SessionSnapshot;
 };
 
+const HIT_TOAST = {
+  meleeKill: 'BONK!',
+  ramKill: 'RAM!',
+  melee: 'boing',
+  ram: 'whoosh',
+} as const;
+
 export function createSession(opts: {
-  spawn: { x: number; z: number; yaw: number };
+  riders: RiderSpawn[];
   terrain: Terrain;
   cameraFrame: CameraFrame;
   blockers: readonly Box3[];
@@ -67,51 +61,41 @@ export function createSession(opts: {
 }): Session {
   const bus = createBus();
   const heightAt = (x: number, z: number) => opts.terrain.sampleHeight(x, z);
-  let bike = createBikeState({
-    x: opts.spawn.x,
-    z: opts.spawn.z,
-    yaw: opts.spawn.yaw,
-    y: heightAt(opts.spawn.x, opts.spawn.z),
-  });
-  let air = createAirState();
-  let melee = createMelee();
+  let riders = opts.riders.map((spawn) =>
+    createRider(spawn, heightAt, opts.cameraFrame, opts.blockers),
+  );
   let zombies = seedShamblers(opts.shamblerPins, heightAt);
-  let toast = '';
-  let toastT = 0;
-  let kills = 0;
-  let prevMelee = false;
-  let prevHop = false;
 
-  const desired = desiredCamera(bike);
-  let camera: CameraState = {
-    position: clampCameraToBlockers(
-      desired.position,
-      { x: bike.x, y: bike.y + 0.6, z: bike.z },
-      opts.cameraFrame,
-      opts.blockers,
-    ),
-    lookAt: desired.lookAt,
-  };
-
-  function setToast(msg: string, hold = 1.6) {
-    toast = msg;
-    toastT = hold;
-  }
-
-  function hurt(id: number, amount: number, kind: HitEvent['kind']) {
+  function hurt(
+    riderId: RiderId,
+    id: number,
+    amount: number,
+    kind: HitEvent['kind'],
+  ): void {
     zombies = zombies.map((z) => {
       if (z.id !== id || z.dead) {
         return z;
       }
       const nextHp = applyDamage({ hp: z.hp, max: z.maxHp }, amount);
       const dead = isDead(nextHp);
-      if (dead) {
-        kills += 1;
-        setToast(kind === 'ram' ? 'RAM!' : 'BONK!');
-      } else {
-        setToast(kind === 'ram' ? 'clip' : 'whiff-hit');
-      }
+      riders = riders.map((r) => {
+        if (r.id !== riderId) {
+          return r;
+        }
+        const toasted = withToast(
+          r,
+          dead
+            ? kind === 'ram'
+              ? HIT_TOAST.ramKill
+              : HIT_TOAST.meleeKill
+            : kind === 'ram'
+              ? HIT_TOAST.ram
+              : HIT_TOAST.melee,
+        );
+        return dead ? { ...toasted, kills: r.kills + 1 } : toasted;
+      });
       bus.emit<HitEvent>('combat.hit', {
+        riderId,
         id,
         kind,
         damage: amount,
@@ -128,82 +112,60 @@ export function createSession(opts: {
 
   return {
     bus,
-    tick(dt, intent) {
-      const hopEdge = intent.hop && !prevHop;
-      const meleeEdge = intent.melee && !prevMelee;
-      prevHop = intent.hop;
-      prevMelee = intent.melee;
-
-      const grade = air.airborne
-        ? undefined
-        : { sampleHeight: heightAt };
-      bike = stepBike(
-        bike,
-        {
-          throttle: intent.throttle,
-          brake: intent.brake,
-          steer: intent.steer,
-        },
-        dt,
-        grade,
+    tick(dt, intents) {
+      riders = riders.map((rider) =>
+        stepRiderMotion(
+          rider,
+          intents[rider.id] ?? idleIntent(),
+          dt,
+          heightAt,
+        ),
       );
-      const groundY = heightAt(bike.x, bike.z);
-      const airStep = stepAir(air, bike, groundY, dt, hopEdge);
-      air = airStep.air;
-      bike = { ...bike, y: airStep.y, speed: airStep.speed };
 
-      melee = stepMelee(trySwing(melee, meleeEdge), dt);
       const live = zombies.filter((z) => !z.dead);
-      if (isMeleeActive(melee) && !melee.struck) {
-        const ids = meleeHits(bike, live);
-        melee = { ...melee, struck: true };
-        for (const id of ids) {
-          hurt(id, MELEE.damage, 'melee');
+      for (const rider of riders) {
+        if (isMeleeActive(rider.melee) && !rider.melee.struck) {
+          rider.melee.struck = true;
+          for (const id of meleeHits(rider.bike, live)) {
+            hurt(rider.id, id, MELEE.damage, 'melee');
+          }
+        }
+        const ramIds = ramHits(
+          { id: rider.id, x: rider.bike.x, z: rider.bike.z },
+          Math.abs(rider.bike.speed),
+          live.filter((z) => z.hitCd <= 0),
+        );
+        const dmg = ramDamage(Math.abs(rider.bike.speed)).damage;
+        for (const id of ramIds) {
+          hurt(rider.id, id, dmg, 'ram');
         }
       }
-      const ramIds = ramHits(
-        { id: 0, x: bike.x, z: bike.z },
-        Math.abs(bike.speed),
-        live.filter((z) => z.hitCd <= 0),
-      );
-      const dmg = ramDamage(Math.abs(bike.speed)).damage;
-      for (const id of ramIds) {
-        hurt(id, dmg, 'ram');
-      }
 
+      const poses = riders.map((r) => ({ x: r.bike.x, z: r.bike.z }));
       zombies = zombies.map((z) => {
-        const next = stepZombieAi(z, dt, bike);
+        const next = stepZombieAi(z, dt, poses);
         return { ...next, y: heightAt(next.x, next.z) };
       });
 
-      camera = stepCamera(camera, bike, dt);
-      camera = {
-        ...camera,
-        position: clampCameraToBlockers(
-          camera.position,
-          { x: bike.x, y: bike.y + 0.6, z: bike.z },
-          opts.cameraFrame,
-          opts.blockers,
-        ),
-      };
-
-      toastT = Math.max(0, toastT - dt);
-      if (toastT <= 0) {
-        toast = '';
-      }
+      riders = riders.map((rider) =>
+        stepRiderCamera(rider, dt, opts.cameraFrame, opts.blockers),
+      );
     },
     snapshot() {
       return {
-        bike,
-        air,
-        melee,
+        riders: riders.map((r) => ({
+          id: r.id,
+          bike: { ...r.bike },
+          air: { ...r.air },
+          melee: { ...r.melee },
+          camera: {
+            position: { ...r.camera.position },
+            lookAt: { ...r.camera.lookAt },
+          },
+          toast: r.toast,
+          kills: r.kills,
+        })),
         zombies: zombies.map((z) => ({ ...z })),
-        camera: {
-          position: { ...camera.position },
-          lookAt: { ...camera.lookAt },
-        },
-        toast,
-        kills,
       };
     },
   };

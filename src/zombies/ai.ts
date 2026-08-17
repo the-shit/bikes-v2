@@ -1,6 +1,6 @@
 /**
- * Ownership: one shambler type — shamble + aggro radius.
- * Talks via: events/state. Do not import bike/ physics internals.
+ * Ownership: canned shambler steering (not Asgard AI).
+ * Talks via: rider poses, not a singleton player. No LLM.
  * Budget: keep this file under ~300 lines.
  */
 
@@ -16,6 +16,8 @@ export type Shambler = {
   dead: boolean;
   hitCd: number;
 };
+
+export type RiderPose = { x: number; z: number };
 
 export const SHAMBLER = {
   walk: 1.35,
@@ -45,26 +47,45 @@ export function createShambler(
   };
 }
 
+export function nearestPose(
+  origin: RiderPose,
+  poses: readonly RiderPose[],
+): { pose: RiderPose; dist: number } | null {
+  let best: { pose: RiderPose; dist: number } | null = null;
+  for (const pose of poses) {
+    const dist = Math.hypot(pose.x - origin.x, pose.z - origin.z);
+    if (!best || dist < best.dist) {
+      best = { pose, dist };
+    }
+  }
+  return best;
+}
+
+/** Deterministic shamble. `riders` is 0–N saddles — chase the nearest. */
 export function stepZombieAi(
   agent: Shambler,
   dt: number,
-  target: { x: number; z: number },
+  riders: readonly RiderPose[],
 ): Shambler {
+  const hitCd = Math.max(0, agent.hitCd - dt);
   if (agent.dead) {
-    return { ...agent, hitCd: Math.max(0, agent.hitCd - dt) };
+    return { ...agent, hitCd };
   }
-  const dx = target.x - agent.x;
-  const dz = target.z - agent.z;
-  const dist = Math.hypot(dx, dz);
+  const near = nearestPose(agent, riders);
+  if (!near) {
+    return { ...agent, aggro: false, hitCd };
+  }
   let aggro = agent.aggro;
-  if (dist <= SHAMBLER.aggroR) {
+  if (near.dist <= SHAMBLER.aggroR) {
     aggro = true;
-  } else if (dist > SHAMBLER.dropAggro) {
+  } else if (near.dist > SHAMBLER.dropAggro) {
     aggro = false;
   }
-  if (!aggro || dist < 0.4) {
-    return { ...agent, aggro, hitCd: Math.max(0, agent.hitCd - dt) };
+  if (!aggro || near.dist < 0.4) {
+    return { ...agent, aggro, hitCd };
   }
+  const dx = near.pose.x - agent.x;
+  const dz = near.pose.z - agent.z;
   const yaw = Math.atan2(dx, dz);
   const step = SHAMBLER.walk * dt;
   return {
@@ -73,7 +94,7 @@ export function stepZombieAi(
     yaw,
     x: agent.x + Math.sin(yaw) * step,
     z: agent.z + Math.cos(yaw) * step,
-    hitCd: Math.max(0, agent.hitCd - dt),
+    hitCd,
   };
 }
 

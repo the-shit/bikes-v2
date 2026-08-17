@@ -46,8 +46,9 @@ export async function createApp(
 ): Promise<{ stop(): void }> {
   const bake = await loadMesaBake();
   const slice = buildJanSlice(bake);
+  const localRiderId = 1;
   const session = createSession({
-    spawn: slice.spawn,
+    riders: [{ id: localRiderId, ...slice.spawn }],
     terrain: slice.terrain,
     cameraFrame: slice.cameraFrame,
     blockers: slice.blockers,
@@ -87,15 +88,18 @@ export async function createApp(
   }
 
   function applyCamera(): void {
-    const snap = session.snapshot();
-    const { position, lookAt } = snap.camera;
+    const rider = session.snapshot().riders.find((r) => r.id === localRiderId);
+    if (!rider) {
+      return;
+    }
+    const { position, lookAt } = rider.camera;
     camera.position.set(position.x, position.y, position.z);
     camera.lookAt(lookAt.x, lookAt.y, lookAt.z);
   }
   applyCamera();
 
   function tick(dt: number): void {
-    session.tick(dt, keys.sample());
+    session.tick(dt, { [localRiderId]: keys.sample() });
   }
 
   function frame(now: number): void {
@@ -111,7 +115,7 @@ export async function createApp(
         const snap = session.snapshot();
         view.sync(snap);
         applyCamera();
-        hud.update(snap, loop.fps);
+        hud.update(snap, localRiderId, loop.fps);
         fps.update(loop.fps);
         renderer.render(scene, camera);
       },

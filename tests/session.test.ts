@@ -9,9 +9,10 @@ const DT = 1 / 60;
 
 function makeSession(
   pins: { x: number; z: number }[] = [{ x: 0, z: 4 }],
+  riders = [{ id: 1, x: 0, z: 0, yaw: 0 }],
 ) {
   return createSession({
-    spawn: { x: 0, z: 0, yaw: 0 },
+    riders,
     terrain: createTerrain(),
     cameraFrame: { x: 0, z: 0, faceYaw: 0 },
     blockers: HOME_CAMERA_BLOCKERS_LOCAL,
@@ -25,37 +26,48 @@ describe('session combat proof', () => {
     let snap = session.snapshot();
     expect(snap.zombies[0].dead).toBe(false);
     for (let swing = 0; swing < 3 && !snap.zombies[0].dead; swing += 1) {
-      session.tick(DT, { ...idleIntent(), melee: true });
+      session.tick(DT, { 1: { ...idleIntent(), melee: true } });
       for (let i = 0; i < 40; i += 1) {
-        session.tick(DT, idleIntent());
+        session.tick(DT, { 1: idleIntent() });
       }
       snap = session.snapshot();
     }
     expect(snap.zombies[0].dead).toBe(true);
-    expect(snap.kills).toBe(1);
+    expect(snap.riders[0].kills).toBe(1);
   });
 
-  it('ram at speed kills; crawl does not', () => {
+  it('ram at speed hits; crawl does not', () => {
     const crawl = makeSession([{ x: 0, z: 0.4 }]);
     for (let i = 0; i < 10; i += 1) {
-      crawl.tick(DT, idleIntent());
+      crawl.tick(DT, { 1: idleIntent() });
     }
     expect(crawl.snapshot().zombies[0].dead).toBe(false);
 
-    const ram = createSession({
-      spawn: { x: 0, z: -2, yaw: 0 },
-      terrain: createTerrain(),
-      cameraFrame: { x: 0, z: 0, faceYaw: 0 },
-      blockers: HOME_CAMERA_BLOCKERS_LOCAL,
-      shamblerPins: [{ x: 0, z: 2 }],
-    });
+    const ram = makeSession([{ x: 0, z: 2 }], [
+      { id: 1, x: 0, z: -2, yaw: 0 },
+    ]);
     for (let i = 0; i < 180; i += 1) {
-      ram.tick(DT, { ...idleIntent(), throttle: 1 });
+      ram.tick(DT, { 1: { ...idleIntent(), throttle: 1 } });
     }
     const snap = ram.snapshot();
-    expect(snap.bike.speed).toBeGreaterThan(8);
+    expect(snap.riders[0].bike.speed).toBeGreaterThan(8);
     expect(snap.zombies[0].dead || snap.zombies[0].hp < SHAMBLER.hp).toBe(
       true,
     );
+  });
+
+  it('two riders: shambler chases the nearer saddle', () => {
+    const session = makeSession([{ x: 0, z: 0 }], [
+      { id: 1, x: 0, z: -4, yaw: 0 },
+      { id: 2, x: 30, z: 30, yaw: 0 },
+    ]);
+    expect(session.snapshot().riders).toHaveLength(2);
+    let z = session.snapshot().zombies[0];
+    for (let i = 0; i < 90; i += 1) {
+      session.tick(DT, { 1: idleIntent(), 2: idleIntent() });
+      z = session.snapshot().zombies[0];
+    }
+    expect(z.aggro).toBe(true);
+    expect(z.z).toBeLessThan(0);
   });
 });

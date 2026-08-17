@@ -1,6 +1,6 @@
 /**
- * Ownership: M1 box props — home, ranches, palms, bike, shambler.
- * Talks via: poses. View places these; no sim.
+ * Ownership: M1 placeholder primitives (not hero art).
+ * Real meshes land via GitHub issues labeled `assets`. Do not block.
  * Budget: keep this file under ~300 lines.
  */
 
@@ -127,15 +127,15 @@ export function buildShambler(): THREE.Group {
   const root = new THREE.Group();
   const body = new THREE.Mesh(
     new THREE.CapsuleGeometry(0.28, 0.7, 4, 8),
-    new THREE.MeshStandardMaterial({ color: 0x6aa84f, roughness: 0.75 }),
+    new THREE.MeshStandardMaterial({ color: 0x7ed957, roughness: 0.55 }),
   );
   body.position.y = 0.85;
   root.add(body);
   const head = new THREE.Mesh(
-    new THREE.SphereGeometry(0.26, 10, 8),
-    new THREE.MeshStandardMaterial({ color: 0x8fbf6a, roughness: 0.7 }),
+    new THREE.SphereGeometry(0.34, 10, 8),
+    new THREE.MeshStandardMaterial({ color: 0xb6f07a, roughness: 0.5 }),
   );
-  head.position.y = 1.55;
+  head.position.y = 1.62;
   root.add(head);
   return root;
 }

@@ -41,21 +41,35 @@ export function createWorldView(slice: JanSlice): WorldView {
     group.add(buildPalm(lot.palm.x, lot.palm.z, slice.terrain.sampleHeight));
   }
 
-  const bike = buildBike();
-  group.add(bike);
+  const bikeMeshes = new Map<number, THREE.Group>();
   const zomMeshes = new Map<number, THREE.Group>();
 
   return {
     group,
     sync(snap) {
-      const { bike: b } = snap;
-      bike.position.set(b.x, b.y, b.z);
-      bike.rotation.order = 'YXZ';
-      bike.rotation.y = b.yaw;
-      bike.rotation.z = b.lean;
-      const live = new Set(snap.zombies.map((z) => z.id));
+      const liveRiders = new Set(snap.riders.map((r) => r.id));
+      for (const [id, mesh] of bikeMeshes) {
+        if (!liveRiders.has(id)) {
+          group.remove(mesh);
+          bikeMeshes.delete(id);
+        }
+      }
+      for (const rider of snap.riders) {
+        let mesh = bikeMeshes.get(rider.id);
+        if (!mesh) {
+          mesh = buildBike();
+          bikeMeshes.set(rider.id, mesh);
+          group.add(mesh);
+        }
+        const b = rider.bike;
+        mesh.position.set(b.x, b.y, b.z);
+        mesh.rotation.order = 'YXZ';
+        mesh.rotation.y = b.yaw;
+        mesh.rotation.z = b.lean;
+      }
+      const liveZ = new Set(snap.zombies.map((z) => z.id));
       for (const [id, mesh] of zomMeshes) {
-        if (!live.has(id)) {
+        if (!liveZ.has(id)) {
           group.remove(mesh);
           zomMeshes.delete(id);
         }
@@ -69,7 +83,9 @@ export function createWorldView(slice: JanSlice): WorldView {
         }
         mesh.position.set(z.x, z.y, z.z);
         mesh.rotation.y = z.yaw;
-        mesh.rotation.x = z.dead ? Math.PI / 2 : 0;
+        mesh.rotation.x = 0;
+        // Cartoon pancake, not a corpse.
+        mesh.scale.set(z.dead ? 1.4 : 1, z.dead ? 0.18 : 1, z.dead ? 1.4 : 1);
         mesh.visible = true;
       }
     },
