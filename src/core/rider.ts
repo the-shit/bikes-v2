@@ -11,6 +11,13 @@ import {
   type BikeState,
 } from '../bike/physics';
 import { FEEDBACK, shakeOffset } from '../combat/feedback';
+import {
+  createLock,
+  cycleLock,
+  maintainLock,
+  type LockState,
+  type LockTarget,
+} from '../combat/lock';
 import { createMelee, stepMelee, trySwing, type MeleeState } from '../combat/melee';
 import type { Intent } from '../input/intents';
 import {
@@ -36,8 +43,10 @@ export type Rider = {
   impactFlashT: number;
   ramShakeT: number;
   ramLinesT: number;
+  lock: LockState;
   prevMelee: boolean;
   prevHop: boolean;
+  prevLock: boolean;
 };
 
 export type RiderSpawn = {
@@ -82,8 +91,10 @@ export function createRider(
     impactFlashT: 0,
     ramShakeT: 0,
     ramLinesT: 0,
+    lock: createLock(),
     prevMelee: false,
     prevHop: false,
+    prevLock: false,
   };
 }
 
@@ -121,12 +132,44 @@ export function stepRiderMotion(
     melee: stepMelee(trySwing(rider.melee, meleeEdge), dt),
     prevHop: intent.hop,
     prevMelee: intent.melee,
+    prevLock: intent.lock,
     toastT: Math.max(0, rider.toastT - dt),
     toast: rider.toastT - dt <= 0 ? '' : rider.toast,
     impactFlashT: Math.max(0, rider.impactFlashT - dt),
     ramShakeT: Math.max(0, rider.ramShakeT - dt),
     ramLinesT: Math.max(0, rider.ramLinesT - dt),
   };
+}
+
+export function holdRiderLock(
+  rider: Rider,
+  targets: readonly LockTarget[],
+  dt: number,
+): Rider {
+  const held = maintainLock(rider.lock, rider.bike, targets, dt);
+  let next = { ...rider, lock: held.lock };
+  if (held.lost === 'range') {
+    next = withToast(next, 'slipped away!', 0.9);
+  }
+  return next;
+}
+
+export function stepRiderLock(
+  rider: Rider,
+  intent: Intent,
+  targets: readonly LockTarget[],
+  dt: number,
+): Rider {
+  let next = rider;
+  if (intent.lock && !rider.prevLock) {
+    const lock = cycleLock(rider.lock, rider.bike, targets);
+    if (lock.targetId != null) {
+      next = withToast({ ...next, lock }, 'LOCKED!', 1.15);
+    } else {
+      next = { ...next, lock };
+    }
+  }
+  return { ...holdRiderLock(next, targets, dt), prevLock: intent.lock };
 }
 
 export function decayRiderFx(rider: Rider, dt: number): Rider {

@@ -134,6 +134,73 @@ export function syncZombieFx(root: THREE.Group, z: Shambler): void {
   });
 }
 
+export function attachLockFx(root: THREE.Group): void {
+  const g = new THREE.Group();
+  g.name = 'lock-reticle';
+  const ringMat = new THREE.MeshBasicMaterial({
+    color: 0xff66cc,
+    transparent: true,
+    opacity: 0.85,
+    side: THREE.DoubleSide,
+    depthWrite: false,
+  });
+  const outer = new THREE.Mesh(new THREE.TorusGeometry(0.85, 0.05, 8, 20), ringMat);
+  outer.rotation.x = Math.PI / 2;
+  outer.position.y = 2.15;
+  g.add(outer);
+  const inner = new THREE.Mesh(
+    new THREE.TorusGeometry(0.55, 0.04, 8, 16),
+    new THREE.MeshBasicMaterial({
+      color: 0xffee66,
+      transparent: true,
+      opacity: 0.9,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+    }),
+  );
+  inner.rotation.x = Math.PI / 2;
+  inner.position.y = 2.15;
+  g.add(inner);
+  const starMat = new THREE.MeshBasicMaterial({ color: 0xfff38a });
+  for (let i = 0; i < 4; i += 1) {
+    const star = new THREE.Mesh(new THREE.OctahedronGeometry(0.12), starMat);
+    star.name = `lock-star-${i}`;
+    g.add(star);
+  }
+  g.visible = false;
+  root.add(g);
+}
+
+export function syncLockFx(
+  root: THREE.Group,
+  locked: boolean,
+  snapT: number,
+  elapsed: number,
+): void {
+  const g = root.getObjectByName('lock-reticle');
+  if (!g) {
+    return;
+  }
+  g.visible = locked;
+  if (!locked) {
+    return;
+  }
+  const wobble =
+    snapT > 0
+      ? 1 + 0.22 * Math.sin(snapT * 42)
+      : 1 + 0.05 * Math.sin(elapsed * 6);
+  g.scale.setScalar(wobble);
+  g.rotation.y = elapsed * 1.4 + snapT * 2;
+  for (let i = 0; i < 4; i += 1) {
+    const star = g.getObjectByName(`lock-star-${i}`);
+    if (!star) {
+      continue;
+    }
+    const a = g.rotation.y + (i * Math.PI) / 2;
+    star.position.set(Math.cos(a) * 1.05, 2.15 + Math.sin(a * 2) * 0.12, Math.sin(a) * 1.05);
+  }
+}
+
 export function zombieSquash(z: Shambler): { x: number; y: number; z: number } {
   if (z.dead) {
     return { x: 1.55, y: 0.14, z: 1.55 };

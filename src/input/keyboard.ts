@@ -28,6 +28,7 @@ const RIDE_CODES = new Set([
   'ArrowDown',
   'ArrowLeft',
   'ArrowRight',
+  'KeyQ',
 ]);
 
 export function createKeyboardAdapter(

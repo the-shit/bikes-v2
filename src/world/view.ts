@@ -9,8 +9,10 @@ import type { SessionSnapshot } from '../core/session';
 import { roadWidth, sampleElevGrid } from './geo';
 import { placeHeroes } from './heroes';
 import {
+  attachLockFx,
   attachRiderFx,
   attachZombieFx,
+  syncLockFx,
   syncRiderFx,
   syncZombieFx,
   zombieSquash,
@@ -62,10 +64,13 @@ export function createWorldView(slice: JanSlice): WorldView {
 
   const bikeMeshes = new Map<number, THREE.Group>();
   const zomMeshes = new Map<number, THREE.Group>();
+  const lockMeshes = new Map<number, THREE.Group>();
+  let fxClock = 0;
 
   return {
     group,
     sync(snap) {
+      fxClock += 1 / 60;
       const liveRiders = new Set(snap.riders.map((r) => r.id));
       for (const [id, mesh] of bikeMeshes) {
         if (!liveRiders.has(id)) {
@@ -110,6 +115,34 @@ export function createWorldView(slice: JanSlice): WorldView {
         mesh.scale.set(squash.x, squash.y, squash.z);
         mesh.visible = true;
         syncZombieFx(mesh, z);
+      }
+      const liveLock = new Set(
+        snap.riders.filter((r) => r.lock.targetId != null).map((r) => r.id),
+      );
+      for (const [id, mesh] of lockMeshes) {
+        if (!liveLock.has(id)) {
+          group.remove(mesh);
+          lockMeshes.delete(id);
+        }
+      }
+      for (const rider of snap.riders) {
+        const tid = rider.lock.targetId;
+        if (tid == null) {
+          continue;
+        }
+        const z = snap.zombies.find((s) => s.id === tid);
+        if (!z || z.dead) {
+          continue;
+        }
+        let mesh = lockMeshes.get(rider.id);
+        if (!mesh) {
+          mesh = new THREE.Group();
+          attachLockFx(mesh);
+          lockMeshes.set(rider.id, mesh);
+          group.add(mesh);
+        }
+        mesh.position.set(z.x, z.y + rider.id * 0.04, z.z);
+        syncLockFx(mesh, true, rider.lock.snapT, fxClock);
       }
     },
   };
