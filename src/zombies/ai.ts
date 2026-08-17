@@ -15,6 +15,10 @@ export type Shambler = {
   aggro: boolean;
   dead: boolean;
   hitCd: number;
+  vx: number;
+  vz: number;
+  flashT: number;
+  squashT: number;
 };
 
 export type RiderPose = { x: number; z: number };
@@ -44,6 +48,10 @@ export function createShambler(
     aggro: false,
     dead: false,
     hitCd: 0,
+    vx: 0,
+    vz: 0,
+    flashT: 0,
+    squashT: 0,
   };
 }
 
@@ -66,14 +74,23 @@ export function stepZombieAi(
   agent: Shambler,
   dt: number,
   riders: readonly RiderPose[],
+  frozen = false,
 ): Shambler {
   const hitCd = Math.max(0, agent.hitCd - dt);
-  if (agent.dead) {
-    return { ...agent, hitCd };
+  const flashT = Math.max(0, agent.flashT - dt);
+  const squashT = Math.max(0, agent.squashT - dt);
+  if (frozen || agent.dead) {
+    return { ...agent, hitCd, flashT, squashT };
   }
-  const near = nearestPose(agent, riders);
+  let { x, z, vx, vz } = agent;
+  x += vx * dt;
+  z += vz * dt;
+  const damp = Math.exp(-8 * dt);
+  vx *= damp;
+  vz *= damp;
+  const near = nearestPose({ x, z }, riders);
   if (!near) {
-    return { ...agent, aggro: false, hitCd };
+    return { ...agent, x, z, vx, vz, aggro: false, hitCd, flashT, squashT };
   }
   let aggro = agent.aggro;
   if (near.dist <= SHAMBLER.aggroR) {
@@ -81,20 +98,25 @@ export function stepZombieAi(
   } else if (near.dist > SHAMBLER.dropAggro) {
     aggro = false;
   }
-  if (!aggro || near.dist < 0.4) {
-    return { ...agent, aggro, hitCd };
+  const sliding = Math.hypot(vx, vz) > 0.5;
+  if (!aggro || near.dist < 0.4 || sliding) {
+    return { ...agent, x, z, vx, vz, aggro, hitCd, flashT, squashT };
   }
-  const dx = near.pose.x - agent.x;
-  const dz = near.pose.z - agent.z;
+  const dx = near.pose.x - x;
+  const dz = near.pose.z - z;
   const yaw = Math.atan2(dx, dz);
   const step = SHAMBLER.walk * dt;
   return {
     ...agent,
     aggro,
     yaw,
-    x: agent.x + Math.sin(yaw) * step,
-    z: agent.z + Math.cos(yaw) * step,
+    x: x + Math.sin(yaw) * step,
+    z: z + Math.cos(yaw) * step,
+    vx,
+    vz,
     hitCd,
+    flashT,
+    squashT,
   };
 }
 

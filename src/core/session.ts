@@ -5,6 +5,7 @@
  */
 
 import { applyDamage, isDead } from '../combat/damage';
+import { FEEDBACK, hitImpulse } from '../combat/feedback';
 import { isMeleeActive, markStruck, meleeHits, MELEE } from '../combat/melee';
 import { RAM, ramDamage, ramHits } from '../combat/ram';
 import { idleIntent, type Intent } from '../input/intents';
@@ -16,8 +17,10 @@ import { seedShamblers } from '../zombies/spawn';
 import { createBus, type EventBus } from './events';
 import {
   createRider,
+  decayRiderFx,
   stepRiderCamera,
   stepRiderMotion,
+  withImpact,
   withToast,
   type Rider,
   type RiderId,
@@ -37,6 +40,7 @@ export type RiderSnapshot = Omit<Rider, 'prevMelee' | 'prevHop' | 'toastT'>;
 export type SessionSnapshot = {
   riders: RiderSnapshot[];
   zombies: Shambler[];
+  hitstopT: number;
 };
 
 export type Session = {
@@ -65,6 +69,7 @@ export function createSession(opts: {
     createRider(spawn, heightAt, opts.cameraFrame, opts.blockers),
   );
   let zombies = seedShamblers(opts.shamblerPins, heightAt);
+  let hitstopT = 0;
 
   function hurt(
     riderId: RiderId,
@@ -82,15 +87,18 @@ export function createSession(opts: {
         if (r.id !== riderId) {
           return r;
         }
-        const toasted = withToast(
-          r,
-          dead
-            ? kind === 'ram'
-              ? HIT_TOAST.ramKill
-              : HIT_TOAST.meleeKill
-            : kind === 'ram'
-              ? HIT_TOAST.ram
-              : HIT_TOAST.melee,
+        const toasted = withImpact(
+          withToast(
+            r,
+            dead
+              ? kind === 'ram'
+                ? HIT_TOAST.ramKill
+                : HIT_TOAST.meleeKill
+              : kind === 'ram'
+                ? HIT_TOAST.ram
+                : HIT_TOAST.melee,
+          ),
+          kind,
         );
         return dead ? { ...toasted, kills: r.kills + 1 } : toasted;
       });
@@ -101,11 +109,22 @@ export function createSession(opts: {
         damage: amount,
         killed: dead,
       });
+      hitstopT = FEEDBACK.hitstop;
+      const rider = riders.find((r) => r.id === riderId);
+      const impulse = hitImpulse(
+        { x: rider?.bike.x ?? z.x, z: rider?.bike.z ?? z.z },
+        { x: z.x, z: z.z },
+        kind,
+      );
       return {
         ...z,
         hp: nextHp.hp,
         dead,
         hitCd: kind === 'ram' ? RAM.cooldown : z.hitCd,
+        vx: impulse.vx,
+        vz: impulse.vz,
+        flashT: impulse.flashT,
+        squashT: impulse.squashT,
       };
     });
   }
@@ -113,6 +132,17 @@ export function createSession(opts: {
   return {
     bus,
     tick(dt, intents) {
+      if (hitstopT > 0) {
+        hitstopT = Math.max(0, hitstopT - dt);
+        riders = riders.map((rider) =>
+          stepRiderCamera(decayRiderFx(rider, dt), dt, opts.cameraFrame, opts.blockers),
+        );
+        zombies = zombies.map((z) =>
+          stepZombieAi(z, dt, riders.map((r) => ({ x: r.bike.x, z: r.bike.z })), true),
+        );
+        return;
+      }
+
       riders = riders.map((rider) =>
         stepRiderMotion(
           rider,
@@ -146,7 +176,7 @@ export function createSession(opts: {
 
       const poses = riders.map((r) => ({ x: r.bike.x, z: r.bike.z }));
       zombies = zombies.map((z) => {
-        const next = stepZombieAi(z, dt, poses);
+        const next = stepZombieAi(z, dt, poses, false);
         return { ...next, y: heightAt(next.x, next.z) };
       });
 
@@ -167,8 +197,12 @@ export function createSession(opts: {
           },
           toast: r.toast,
           kills: r.kills,
+          impactFlashT: r.impactFlashT,
+          ramShakeT: r.ramShakeT,
+          ramLinesT: r.ramLinesT,
         })),
         zombies: zombies.map((z) => ({ ...z })),
+        hitstopT,
       };
     },
   };
