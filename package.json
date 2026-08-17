@@ -13,7 +13,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "quality": "vitest run && vite build",
+    "typecheck": "tsc --noEmit",
+    "quality": "tsc --noEmit && vitest run && vite build",
     "map:mesa": "node scripts/fetch-mesa-map.mjs"
   },
   "repository": {
@@ -36,6 +37,8 @@
     "three": "^0.160.1"
   },
   "devDependencies": {
+    "@types/three": "^0.185.4",
+    "typescript": "^7.0.2",
     "vite": "^8.2.1",
     "vitest": "^4.1.10"
   }
