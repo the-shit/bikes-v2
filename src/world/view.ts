@@ -8,6 +8,13 @@ import * as THREE from 'three';
 import type { SessionSnapshot } from '../core/session';
 import { roadWidth, sampleElevGrid } from './geo';
 import {
+  attachRiderFx,
+  attachZombieFx,
+  syncRiderFx,
+  syncZombieFx,
+  zombieSquash,
+} from './fx';
+import {
   buildBike,
   buildHome,
   buildPalm,
@@ -58,6 +65,7 @@ export function createWorldView(slice: JanSlice): WorldView {
         let mesh = bikeMeshes.get(rider.id);
         if (!mesh) {
           mesh = buildBike();
+          attachRiderFx(mesh);
           bikeMeshes.set(rider.id, mesh);
           group.add(mesh);
         }
@@ -66,6 +74,7 @@ export function createWorldView(slice: JanSlice): WorldView {
         mesh.rotation.order = 'YXZ';
         mesh.rotation.y = b.yaw;
         mesh.rotation.z = b.lean;
+        syncRiderFx(mesh, rider);
       }
       const liveZ = new Set(snap.zombies.map((z) => z.id));
       for (const [id, mesh] of zomMeshes) {
@@ -78,15 +87,17 @@ export function createWorldView(slice: JanSlice): WorldView {
         let mesh = zomMeshes.get(z.id);
         if (!mesh) {
           mesh = buildShambler();
+          attachZombieFx(mesh);
           zomMeshes.set(z.id, mesh);
           group.add(mesh);
         }
         mesh.position.set(z.x, z.y, z.z);
         mesh.rotation.y = z.yaw;
         mesh.rotation.x = 0;
-        // Cartoon pancake, not a corpse.
-        mesh.scale.set(z.dead ? 1.4 : 1, z.dead ? 0.18 : 1, z.dead ? 1.4 : 1);
+        const squash = zombieSquash(z);
+        mesh.scale.set(squash.x, squash.y, squash.z);
         mesh.visible = true;
+        syncZombieFx(mesh, z);
       }
     },
   };

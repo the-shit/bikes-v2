@@ -10,6 +10,7 @@ import {
   stepBike,
   type BikeState,
 } from '../bike/physics';
+import { FEEDBACK, shakeOffset } from '../combat/feedback';
 import { createMelee, stepMelee, trySwing, type MeleeState } from '../combat/melee';
 import type { Intent } from '../input/intents';
 import {
@@ -32,6 +33,9 @@ export type Rider = {
   toast: string;
   toastT: number;
   kills: number;
+  impactFlashT: number;
+  ramShakeT: number;
+  ramLinesT: number;
   prevMelee: boolean;
   prevHop: boolean;
 };
@@ -75,6 +79,9 @@ export function createRider(
     toast: '',
     toastT: 0,
     kills: 0,
+    impactFlashT: 0,
+    ramShakeT: 0,
+    ramLinesT: 0,
     prevMelee: false,
     prevHop: false,
   };
@@ -116,6 +123,20 @@ export function stepRiderMotion(
     prevMelee: intent.melee,
     toastT: Math.max(0, rider.toastT - dt),
     toast: rider.toastT - dt <= 0 ? '' : rider.toast,
+    impactFlashT: Math.max(0, rider.impactFlashT - dt),
+    ramShakeT: Math.max(0, rider.ramShakeT - dt),
+    ramLinesT: Math.max(0, rider.ramLinesT - dt),
+  };
+}
+
+export function decayRiderFx(rider: Rider, dt: number): Rider {
+  return {
+    ...rider,
+    toastT: Math.max(0, rider.toastT - dt),
+    toast: rider.toastT - dt <= 0 ? '' : rider.toast,
+    impactFlashT: Math.max(0, rider.impactFlashT - dt),
+    ramShakeT: Math.max(0, rider.ramShakeT - dt),
+    ramLinesT: Math.max(0, rider.ramLinesT - dt),
   };
 }
 
@@ -126,18 +147,36 @@ export function stepRiderCamera(
   blockers: readonly Box3[],
 ): Rider {
   const camera = stepCamera(rider.camera, rider.bike, dt);
+  const clamped = clampCameraToBlockers(
+    camera.position,
+    { x: rider.bike.x, y: rider.bike.y + 0.6, z: rider.bike.z },
+    frame,
+    blockers,
+  );
+  const shake = shakeOffset(rider.ramShakeT, rider.id);
   return {
     ...rider,
     camera: {
-      ...camera,
-      position: clampCameraToBlockers(
-        camera.position,
-        { x: rider.bike.x, y: rider.bike.y + 0.6, z: rider.bike.z },
-        frame,
-        blockers,
-      ),
+      position: {
+        x: clamped.x + shake.x,
+        y: clamped.y + shake.y,
+        z: clamped.z + shake.z,
+      },
+      lookAt: camera.lookAt,
     },
   };
+}
+
+export function withImpact(rider: Rider, kind: 'melee' | 'ram'): Rider {
+  if (kind === 'ram') {
+    return {
+      ...rider,
+      impactFlashT: FEEDBACK.impact,
+      ramShakeT: FEEDBACK.ramShake,
+      ramLinesT: FEEDBACK.ramLines,
+    };
+  }
+  return { ...rider, impactFlashT: FEEDBACK.impact };
 }
 
 export function withToast(rider: Rider, msg: string, hold = 1.6): Rider {

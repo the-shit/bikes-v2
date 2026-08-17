@@ -58,6 +58,45 @@ export function markStruck(state: MeleeState): MeleeState {
   return { ...state, struck: true };
 }
 
+/** Bat yaw in bike space: cocked right → sweep across the nose → recover. */
+export function swingArc(state: MeleeState): {
+  ready: boolean;
+  swinging: boolean;
+  angle: number;
+  progress: number;
+} {
+  const cocked = 1.15;
+  const finish = -1.05;
+  if (state.phase === 'idle') {
+    return { ready: true, swinging: false, angle: cocked, progress: 0 };
+  }
+  if (state.phase === 'windup') {
+    const progress = Math.min(1, state.t / MELEE.windup);
+    return {
+      ready: false,
+      swinging: true,
+      angle: cocked + 0.28 * progress,
+      progress,
+    };
+  }
+  if (state.phase === 'active') {
+    const progress = Math.min(1, state.t / MELEE.active);
+    return {
+      ready: false,
+      swinging: true,
+      angle: cocked + (finish - cocked) * progress,
+      progress,
+    };
+  }
+  const progress = Math.min(1, state.t / MELEE.recover);
+  return {
+    ready: false,
+    swinging: true,
+    angle: finish + (cocked - finish) * progress,
+    progress,
+  };
+}
+
 export type Pose2 = { x: number; z: number };
 
 export function meleeHits(

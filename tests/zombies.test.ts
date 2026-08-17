@@ -20,6 +20,18 @@ describe('shambler AI', () => {
     expect(z.z).toBeGreaterThan(0.5);
   });
 
+  it('slides on knockback instead of walking through it', () => {
+    const shoved = {
+      ...createShambler(1, 0, 0),
+      vx: 0,
+      vz: 4,
+      flashT: 0.2,
+    };
+    const next = stepZombieAi(shoved, DT, [{ x: 0, z: 8 }]);
+    expect(next.z).toBeGreaterThan(0);
+    expect(next.flashT).toBeLessThan(shoved.flashT);
+  });
+
   it('stops when dead', () => {
     const dead = stepZombieAi(
       { ...createShambler(1, 0, 0), dead: true },

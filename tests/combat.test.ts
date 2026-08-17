@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { applyDamage, createHealth, isDead } from '../src/combat/damage';
+import { FEEDBACK, hitImpulse, shakeOffset } from '../src/combat/feedback';
 import {
   createMelee,
   isMeleeActive,
@@ -7,6 +8,7 @@ import {
   meleeHits,
   MELEE,
   stepMelee,
+  swingArc,
   trySwing,
 } from '../src/combat/melee';
 import { RAM, ramDamage, ramHits } from '../src/combat/ram';
@@ -45,6 +47,38 @@ describe('melee', () => {
     expect(idle.struck).toBe(false);
     expect(next.struck).toBe(true);
     expect(next).not.toBe(idle);
+  });
+
+  it('telegraphs ready and sweeps the bat across the nose', () => {
+    const idle = swingArc(createMelee());
+    expect(idle.ready).toBe(true);
+    expect(idle.swinging).toBe(false);
+    let m = trySwing(createMelee(), true);
+    expect(swingArc(m).ready).toBe(false);
+    expect(swingArc(m).angle).toBeGreaterThan(1);
+    const start = swingArc(m).angle;
+    for (let i = 0; i < Math.ceil(MELEE.windup / DT) + 2; i += 1) {
+      m = stepMelee(m, DT);
+    }
+    const mid = swingArc(m);
+    expect(mid.swinging).toBe(true);
+    expect(mid.angle).toBeLessThan(start);
+  });
+});
+
+describe('hit feedback', () => {
+  it('knocks the target away from the rider', () => {
+    const impulse = hitImpulse({ x: 0, z: 0 }, { x: 0, z: 2 }, 'melee');
+    expect(impulse.vz).toBeGreaterThan(impulse.vx);
+    expect(impulse.flashT).toBe(FEEDBACK.flash);
+    const ram = hitImpulse({ x: 0, z: 0 }, { x: 0, z: 2 }, 'ram');
+    expect(ram.vz).toBeGreaterThan(impulse.vz);
+  });
+
+  it('shake dies when the timer is spent', () => {
+    expect(shakeOffset(0, 1)).toEqual({ x: 0, y: 0, z: 0 });
+    const live = shakeOffset(FEEDBACK.ramShake, 1);
+    expect(Math.hypot(live.x, live.y, live.z)).toBeGreaterThan(0.05);
   });
 });
 

@@ -88,4 +88,44 @@ describe('session combat proof', () => {
     expect(snap.zombies[0].dead).toBe(true);
     expect(snap.riders.filter((r) => r.kills > 0)).toHaveLength(1);
   });
+
+  it('freezes motion for a beat after a melee hit', () => {
+    const session = makeSession([{ x: 0, z: 1.6 }]);
+    let hit = false;
+    session.bus.on('combat.hit', () => {
+      hit = true;
+    });
+    for (let i = 0; i < 20 && !hit; i += 1) {
+      session.tick(DT, { 1: { ...idleIntent(), melee: true } });
+    }
+    expect(hit).toBe(true);
+    const afterHit = session.snapshot();
+    expect(afterHit.hitstopT).toBeGreaterThan(0);
+    expect(afterHit.zombies[0].flashT).toBeGreaterThan(0);
+    const x0 = afterHit.riders[0].bike.x;
+    const z0 = afterHit.riders[0].bike.z;
+    session.tick(DT, { 1: { ...idleIntent(), throttle: 1 } });
+    const frozen = session.snapshot();
+    expect(frozen.riders[0].bike.x).toBeCloseTo(x0, 5);
+    expect(frozen.riders[0].bike.z).toBeCloseTo(z0, 5);
+  });
+
+  it('knocks a shambler away after hitstop', () => {
+    const session = makeSession([{ x: 0, z: 1.6 }]);
+    let zAtHit = 0;
+    for (let i = 0; i < 20; i += 1) {
+      session.tick(DT, { 1: { ...idleIntent(), melee: true } });
+      const snap = session.snapshot();
+      if (snap.zombies[0].flashT > 0 && zAtHit === 0) {
+        zAtHit = snap.zombies[0].z;
+      }
+    }
+    expect(zAtHit).toBeGreaterThan(0);
+    while (session.snapshot().hitstopT > 0) {
+      session.tick(DT, { 1: idleIntent() });
+    }
+    session.tick(DT, { 1: idleIntent() });
+    session.tick(DT, { 1: idleIntent() });
+    expect(session.snapshot().zombies[0].z).toBeGreaterThan(zAtHit);
+  });
 });

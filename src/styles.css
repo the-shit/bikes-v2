@@ -35,5 +35,69 @@ body {
 #hud {
   bottom: 14px;
   left: 10px;
-  max-width: min(520px, 90vw);
+  max-width: min(560px, 92vw);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: transparent;
+  padding: 0;
+}
+
+#hud .weapon {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: rgba(255, 248, 230, 0.82);
+  border: 2px solid #2a2418;
+  min-width: 148px;
+}
+
+#hud .weapon[data-ready='1'] {
+  border-color: #d4a017;
+}
+
+#hud .weapon[data-swing='1'] {
+  border-color: #fff4b0;
+  background: rgba(255, 244, 176, 0.92);
+}
+
+#hud .weapon[data-hit='1'] {
+  background: #fff4a8;
+  box-shadow: 0 0 0 3px #ffe066;
+}
+
+#hud .bat-glyph {
+  width: 28px;
+  height: 10px;
+  background: #e8c36a;
+  border: 1px solid #6a4020;
+  transform: rotate(-35deg);
+  box-shadow: 2px 0 0 #6a4020;
+}
+
+#hud .weapon-meta {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+}
+
+#hud .key {
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+#hud .wep-name {
+  font-size: 11px;
+}
+
+#hud .wep-state {
+  font-size: 10px;
+  text-transform: uppercase;
+  opacity: 0.8;
+}
+
+#hud .ride-line {
+  padding: 4px 8px;
+  background: rgba(255, 248, 230, 0.72);
 }
