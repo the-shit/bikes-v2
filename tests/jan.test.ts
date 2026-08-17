@@ -23,5 +23,8 @@ describe('Jan Ave slice', () => {
     expect(Math.hypot(slice.spawn.x - slice.home.x, slice.spawn.z - slice.home.z)).toBeGreaterThan(
       4,
     );
+    expect(slice.chargePoints.some((p) => p.kind === 'garage')).toBe(true);
+    expect(slice.chargePoints.some((p) => p.kind === 'circlek')).toBe(true);
+    expect(slice.hazards.length).toBeGreaterThan(0);
   });
 });

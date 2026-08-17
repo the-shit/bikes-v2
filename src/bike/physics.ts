@@ -4,6 +4,8 @@
  * Budget: keep this file under ~300 lines.
  */
 
+import type { RideFeel } from './feel';
+
 export type BikeState = {
   x: number;
   y: number;
@@ -67,12 +69,19 @@ export function stepBike(
   input: BikeInput,
   dt: number,
   grade?: GradeField,
+  feel?: RideFeel,
 ): BikeState {
   if (!Number.isFinite(dt) || dt <= 0) {
     return { ...state };
   }
 
   const cfg = BIKE_DEFAULTS;
+  const maxSpeed = cfg.maxSpeed * (feel?.maxSpeedScale ?? 1);
+  const accel = cfg.accel * (feel?.accelScale ?? 1);
+  const brakeForce = cfg.brake * (feel?.brakeScale ?? 1);
+  const drag = cfg.drag * (feel?.dragScale ?? 1);
+  const rollingResistance = cfg.rollingResistance * (feel?.rollingScale ?? 1);
+  const turnRate = cfg.turnRate * (feel?.turnScale ?? 1);
   const throttle = clamp01(input.throttle);
   const brake = clamp01(input.brake);
   const steer = clamp(input.steer, -1, 1);
@@ -81,10 +90,10 @@ export function stepBike(
   if (throttle > 0 && speed < 0) {
     speed = 0;
   }
-  speed += throttle * cfg.accel * dt;
+  speed += throttle * accel * dt;
 
   if (brake > 0 && speed > 0) {
-    speed = Math.max(0, speed - brake * cfg.brake * dt);
+    speed = Math.max(0, speed - brake * brakeForce * dt);
   }
 
   if (brake > 0 && throttle === 0 && state.speed <= 0 && speed <= 0) {
@@ -96,7 +105,7 @@ export function stepBike(
   }
 
   if (speed > 0) {
-    const resist = cfg.drag * speed + cfg.rollingResistance;
+    const resist = drag * speed + rollingResistance;
     speed = Math.max(0, speed - resist * dt);
   }
 
@@ -104,8 +113,8 @@ export function stepBike(
     speed += gradeAccel(state, speed, grade) * dt;
   }
 
-  if (speed > cfg.maxSpeed) {
-    speed = cfg.maxSpeed + (speed - cfg.maxSpeed) * 0.15;
+  if (speed > maxSpeed) {
+    speed = maxSpeed + (speed - maxSpeed) * 0.15;
   }
 
   const absSpeed = Math.abs(speed);
@@ -114,11 +123,11 @@ export function stepBike(
       ? 0
       : Math.min(1, (absSpeed - cfg.minSteerSpeed) / 8);
   const highSpeedFactor =
-    1 - Math.min(0.35, Math.max(0, speed) / (cfg.maxSpeed * 2.2));
+    1 - Math.min(0.35, Math.max(0, speed) / (maxSpeed * 2.2 || 1));
   const steerSign = speed < 0 ? -1 : 1;
   const yaw =
     state.yaw +
-    steer * steerSign * cfg.turnRate * rolling * highSpeedFactor * dt;
+    steer * steerSign * turnRate * rolling * highSpeedFactor * dt;
 
   const targetLean =
     rolling > 0

@@ -15,6 +15,9 @@ export type Intent = {
   hop: boolean;
   lock: boolean;
   mount: boolean;
+  repair: boolean;
+  assistUp: boolean;
+  assistDown: boolean;
 };
 
 export function idleIntent(): Intent {
@@ -29,6 +32,9 @@ export function idleIntent(): Intent {
     hop: false,
     lock: false,
     mount: false,
+    repair: false,
+    assistUp: false,
+    assistDown: false,
   };
 }
 

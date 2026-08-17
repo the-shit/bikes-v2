@@ -4,6 +4,9 @@
  * Budget: keep this file under ~300 lines.
  */
 
+import { createBattery } from '../bike/battery';
+import { createWorldBike, type WorldBike } from '../bike/mount';
+import type { Hazard } from '../bike/tires';
 import { applyDamage, isDead } from '../combat/damage';
 import { FEEDBACK, hitImpulse } from '../combat/feedback';
 import { lockSteerAssist } from '../combat/lock';
@@ -11,18 +14,19 @@ import { isMeleeActive, markStruck, meleeHits, MELEE } from '../combat/melee';
 import { RAM, ramDamage, ramHits } from '../combat/ram';
 import { idleIntent, type Intent } from '../input/intents';
 import type { CameraFrame } from '../world/camera';
+import type { ChargePoint } from '../world/charge';
 import type { Box3 } from '../world/home';
 import type { Terrain } from '../world/terrain';
 import { stepZombieAi, type Shambler } from '../zombies/ai';
 import { seedShamblers } from '../zombies/spawn';
 import { createBus, type EventBus } from './events';
+import { stepRideWorld } from './rideTick';
 import {
   createRider,
   decayRiderFx,
   holdRiderLock,
   stepRiderCamera,
   stepRiderLock,
-  stepRiderMotion,
   withImpact,
   withToast,
   type Rider,
@@ -40,11 +44,19 @@ export type HitEvent = {
 
 export type RiderSnapshot = Omit<
   Rider,
-  'prevMelee' | 'prevHop' | 'prevLock' | 'toastT'
+  | 'prevMelee'
+  | 'prevHop'
+  | 'prevLock'
+  | 'prevMount'
+  | 'prevRepair'
+  | 'prevAssistUp'
+  | 'prevAssistDown'
+  | 'toastT'
 >;
 
 export type SessionSnapshot = {
   riders: RiderSnapshot[];
+  bikes: WorldBike[];
   zombies: Shambler[];
   hitstopT: number;
 };
@@ -68,12 +80,35 @@ export function createSession(opts: {
   cameraFrame: CameraFrame;
   blockers: readonly Box3[];
   shamblerPins: { x: number; z: number }[];
+  hazards?: readonly Hazard[];
+  chargePoints?: readonly ChargePoint[];
 }): Session {
   const bus = createBus();
   const heightAt = (x: number, z: number) => opts.terrain.sampleHeight(x, z);
+  const hazards = opts.hazards ?? [];
+  const chargePoints = opts.chargePoints ?? [];
   let riders = opts.riders.map((spawn) =>
     createRider(spawn, heightAt, opts.cameraFrame, opts.blockers),
   );
+  let bikes: WorldBike[] = opts.riders
+    .filter((spawn) => spawn.withBike !== false)
+    .map((spawn) => {
+      const bike = createWorldBike(
+        spawn.id,
+        {
+          x: spawn.x,
+          z: spawn.z,
+          yaw: spawn.yaw,
+          y: heightAt(spawn.x, spawn.z),
+          speed: spawn.speed,
+        },
+        spawn.id,
+      );
+      if (spawn.charge == null) {
+        return bike;
+      }
+      return { ...bike, battery: createBattery({ charge: spawn.charge }) };
+    });
   let zombies = seedShamblers(opts.shamblerPins, heightAt);
   let hitstopT = 0;
 
@@ -139,12 +174,7 @@ export function createSession(opts: {
     bus,
     tick(dt, intents) {
       riders = riders.map((rider) =>
-        stepRiderLock(
-          rider,
-          intents[rider.id] ?? idleIntent(),
-          zombies,
-          dt,
-        ),
+        stepRiderLock(rider, intents[rider.id] ?? idleIntent(), zombies, dt),
       );
 
       if (hitstopT > 0) {
@@ -158,14 +188,25 @@ export function createSession(opts: {
         return;
       }
 
-      riders = riders.map((rider) => {
+      const assisted: Record<RiderId, Intent> = {};
+      for (const rider of riders) {
         const intent = intents[rider.id] ?? idleIntent();
-        const locked = zombies.find(
-          (z) => z.id === rider.lock.targetId && !z.dead,
-        );
-        const steer = lockSteerAssist(rider.bike, locked ?? null, intent.steer);
-        return stepRiderMotion(rider, { ...intent, steer }, dt, heightAt);
-      });
+        const locked = zombies.find((z) => z.id === rider.lock.targetId && !z.dead);
+        assisted[rider.id] = {
+          ...intent,
+          steer: lockSteerAssist(rider.bike, locked ?? null, intent.steer),
+        };
+      }
+      const stepped = stepRideWorld(
+        { riders, bikes },
+        dt,
+        assisted,
+        heightAt,
+        hazards,
+        chargePoints,
+      );
+      riders = stepped.riders;
+      bikes = stepped.bikes;
 
       for (const rider of riders) {
         if (isMeleeActive(rider.melee) && !rider.melee.struck) {
@@ -176,6 +217,9 @@ export function createSession(opts: {
           for (const id of meleeHits(rider.bike, meleeLive)) {
             hurt(rider.id, id, MELEE.damage, 'melee');
           }
+        }
+        if (rider.mountedBikeId == null) {
+          continue;
         }
         const ramLive = zombies.filter((z) => !z.dead && z.hitCd <= 0);
         const ramIds = ramHits(
@@ -221,6 +265,15 @@ export function createSession(opts: {
           ramShakeT: r.ramShakeT,
           ramLinesT: r.ramLinesT,
           lock: { ...r.lock },
+          mountedBikeId: r.mountedBikeId,
+          lastBikeId: r.lastBikeId,
+        })),
+        bikes: bikes.map((b) => ({
+          ...b,
+          pose: { ...b.pose },
+          air: { ...b.air },
+          battery: { ...b.battery },
+          tires: { ...b.tires },
         })),
         zombies: zombies.map((z) => ({ ...z })),
         hitstopT,

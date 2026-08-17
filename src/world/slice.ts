@@ -21,8 +21,15 @@ import {
   roadsNear,
   type JanLot,
 } from './jan';
+import {
+  circleKChargePoint,
+  garageChargePoint,
+  type ChargePoint,
+} from './charge';
+import { seedThornHazards } from './hazards';
 import type { MesaBake } from './osm';
 import { createTerrain, type Terrain } from './terrain';
+import type { Hazard } from '../bike/tires';
 
 export const SLICE_RADIUS_M = 160;
 
@@ -37,6 +44,8 @@ export type JanSlice = {
   shamblerPins: { x: number; z: number }[];
   cameraFrame: HomePlace;
   blockers: typeof HOME_CAMERA_BLOCKERS_LOCAL;
+  chargePoints: ChargePoint[];
+  hazards: Hazard[];
 };
 
 export function buildJanSlice(bake: MesaBake): JanSlice {
@@ -54,6 +63,7 @@ export function buildJanSlice(bake: MesaBake): JanSlice {
   };
   const along = jan ? janStreetPoints(jan, home, 2, 22) : [];
   const shamblerPins = [driveway, ...along].slice(0, 3);
+  const hazardPins = jan ? janStreetPoints(jan, home, 6, 18) : [];
   return {
     terrain,
     home,
@@ -65,5 +75,7 @@ export function buildJanSlice(bake: MesaBake): JanSlice {
     shamblerPins,
     cameraFrame: home,
     blockers: HOME_CAMERA_BLOCKERS_LOCAL,
+    chargePoints: [garageChargePoint(spawn), circleKChargePoint()],
+    hazards: seedThornHazards(hazardPins, 4),
   };
 }

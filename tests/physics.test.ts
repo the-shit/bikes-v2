@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { IDENTITY_FEEL } from '../src/bike/feel';
 import {
   BIKE_DEFAULTS,
   createBikeState,
@@ -85,5 +86,34 @@ describe('bike physics', () => {
     expect(a.speed).toBeGreaterThan(b.speed);
     expect(a.speed).toBeGreaterThan(10);
     expect(b.speed).toBeLessThan(10);
+  });
+
+  it('identity feel matches the unscaled M1 integrator', () => {
+    const input = { throttle: 1, brake: 0, steer: 0.4 };
+    let a = createBikeState({ speed: 8 });
+    let b = createBikeState({ speed: 8 });
+    for (let i = 0; i < 45; i += 1) {
+      a = stepBike(a, input, DT);
+      b = stepBike(b, input, DT, undefined, IDENTITY_FEEL);
+    }
+    expect(b.speed).toBeCloseTo(a.speed, 8);
+    expect(b.z).toBeCloseTo(a.z, 8);
+    expect(b.yaw).toBeCloseTo(a.yaw, 8);
+  });
+
+  it('low feel scales cap speed and accel', () => {
+    const crawl = {
+      maxSpeedScale: 0.2,
+      accelScale: 0.2,
+      dragScale: 1,
+      rollingScale: 1,
+      turnScale: 1,
+      brakeScale: 1,
+    };
+    let bike = createBikeState();
+    for (let i = 0; i < 180; i += 1) {
+      bike = stepBike(bike, { throttle: 1, brake: 0, steer: 0 }, DT, undefined, crawl);
+    }
+    expect(bike.speed).toBeLessThan(BIKE_DEFAULTS.maxSpeed * 0.35);
   });
 });

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createSession } from '../src/core/session';
 import type { RiderSpawn } from '../src/core/rider';
 import { idleIntent } from '../src/input/intents';
+import { garageChargePoint } from '../src/world/charge';
 import { createTerrain } from '../src/world/terrain';
 import { HOME_CAMERA_BLOCKERS_LOCAL } from '../src/world/home';
 import { SHAMBLER } from '../src/zombies/ai';
@@ -152,5 +153,80 @@ describe('session combat proof', () => {
     }
     expect(locked.snapshot().zombies[0].dead).toBe(true);
     expect(locked.snapshot().riders[0].lock.targetId).toBeNull();
+  });
+});
+
+describe('session bike systems', () => {
+  it('dismount parks the bike; remount from beside it', () => {
+    const session = makeSession();
+    session.tick(DT, { 1: { ...idleIntent(), mount: true } });
+    let snap = session.snapshot();
+    expect(snap.riders[0].mountedBikeId).toBeNull();
+    expect(snap.bikes[0].occupantId).toBeNull();
+    expect(snap.bikes[0].pose.speed).toBe(0);
+
+    session.tick(DT, { 1: idleIntent() });
+    session.tick(DT, { 1: { ...idleIntent(), mount: true } });
+    snap = session.snapshot();
+    expect(snap.riders[0].mountedBikeId).toBe(1);
+    expect(snap.bikes[0].occupantId).toBe(1);
+  });
+
+  it('on foot the bike stays in the world', () => {
+    const session = makeSession();
+    session.tick(DT, { 1: { ...idleIntent(), mount: true } });
+    const parked = session.snapshot().bikes[0].pose;
+    for (let i = 0; i < 90; i += 1) {
+      session.tick(DT, { 1: { ...idleIntent(), throttle: 1 } });
+    }
+    const snap = session.snapshot();
+    expect(snap.riders[0].mountedBikeId).toBeNull();
+    expect(
+      Math.hypot(snap.riders[0].bike.x - parked.x, snap.riders[0].bike.z - parked.z),
+    ).toBeGreaterThan(1);
+    expect(
+      Math.hypot(snap.bikes[0].pose.x - parked.x, snap.bikes[0].pose.z - parked.z),
+    ).toBeLessThan(0.2);
+    expect(snap.riders[0].bike.speed).toBeLessThan(4);
+  });
+
+  it('second rider can yoink a parked bike', () => {
+    const session = makeSession([{ x: 80, z: 80 }], [
+      { id: 1, x: 0, z: 0, yaw: 0 },
+      { id: 2, x: 0.4, z: 0, yaw: 0, withBike: false },
+    ]);
+    session.tick(DT, {
+      1: { ...idleIntent(), mount: true },
+      2: idleIntent(),
+    });
+    session.tick(DT, { 1: idleIntent(), 2: idleIntent() });
+    session.tick(DT, {
+      1: idleIntent(),
+      2: { ...idleIntent(), mount: true },
+    });
+    const snap = session.snapshot();
+    expect(snap.riders[0].mountedBikeId).toBeNull();
+    expect(snap.riders[1].mountedBikeId).toBe(1);
+    expect(snap.bikes.filter((b) => b.occupantId === 2)).toHaveLength(1);
+  });
+
+  it('throttle drains the pack; garage stay tops it', () => {
+    const drain = makeSession();
+    for (let i = 0; i < 240; i += 1) {
+      drain.tick(DT, { 1: { ...idleIntent(), throttle: 1 } });
+    }
+    expect(drain.snapshot().bikes[0].battery.charge).toBeLessThan(0.96);
+
+    const refill = createSession({
+      riders: [{ id: 1, x: 0, z: 0, yaw: 0, charge: 0.2 }],
+      terrain: createTerrain(),
+      cameraFrame: { x: 0, z: 0, faceYaw: 0 },
+      blockers: HOME_CAMERA_BLOCKERS_LOCAL,
+      shamblerPins: [],
+      chargePoints: [garageChargePoint({ x: 0, z: 0 })],
+    });
+    expect(refill.snapshot().bikes[0].battery.charge).toBeCloseTo(0.2);
+    refill.tick(DT, { 1: idleIntent() });
+    expect(refill.snapshot().bikes[0].battery.charge).toBe(1);
   });
 });

@@ -12,6 +12,9 @@ export const DEFAULT_BINDINGS = Object.freeze({
   hop: ['ShiftLeft', 'ShiftRight'],
   melee: ['KeyE'],
   lock: ['KeyQ'],
+  mount: ['KeyR'],
+  assistUp: ['BracketRight'],
+  assistDown: ['BracketLeft'],
   steerLeft: ['KeyA', 'ArrowLeft'],
   steerRight: ['KeyD', 'ArrowRight'],
 });
@@ -65,5 +68,8 @@ export function sampleInput(state: InputState): Intent {
     hop: any(bindings.hop),
     melee: any(bindings.melee),
     lock: any(bindings.lock),
+    mount: any(bindings.mount),
+    assistUp: any(bindings.assistUp),
+    assistDown: any(bindings.assistDown),
   };
 }
