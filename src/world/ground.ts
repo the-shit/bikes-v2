@@ -1,19 +1,32 @@
 /**
- * Ownership: Jan slice ground + road ribbons. No actors.
- * Talks via: JanSlice. View adds the meshes.
+ * Ownership: Mesa ground + road ribbons. No actors.
+ * Talks via: terrain + roads. View adds the meshes.
  * Budget: keep this file under ~300 lines.
  */
 
 import * as THREE from 'three';
-import { roadWidth, sampleElevGrid } from './geo';
+import { roadWidth, sampleElevGrid, type RoadPoly } from './geo';
 import type { JanSlice } from './slice';
 
 const SAND = 0xc4a574;
 const ASPHALT = 0x3f3f48;
 
-export function buildGround(slice: JanSlice): THREE.Mesh {
-  const half = 140;
-  const segs = 56;
+export type GroundWorld = Pick<JanSlice, 'terrain'> & {
+  nearbyRoads?: RoadPoly[];
+  roads?: RoadPoly[];
+};
+
+function ribbonRoads(world: GroundWorld): RoadPoly[] {
+  return world.roads ?? world.nearbyRoads ?? [];
+}
+
+function paintRoads(world: GroundWorld): RoadPoly[] {
+  return world.nearbyRoads ?? [];
+}
+
+export function buildGround(slice: GroundWorld): THREE.Mesh {
+  const half = Math.min(900, slice.terrain.map.halfExtentM || 140);
+  const segs = half > 200 ? 80 : 56;
   const geo = new THREE.PlaneGeometry(half * 2, half * 2, segs, segs);
   geo.rotateX(-Math.PI / 2);
   const pos = geo.attributes.position;
@@ -26,7 +39,7 @@ export function buildGround(slice: JanSlice): THREE.Mesh {
     const z = pos.getZ(i);
     const y = sampleElevGrid(x, z, slice.terrain.map);
     pos.setY(i, y);
-    const near = nearestRoadDist(x, z, slice.nearbyRoads);
+    const near = nearestRoadDist(x, z, paintRoads(slice));
     const c = sand.clone().lerp(rock, 0.2);
     if (near && near.dist < near.halfW) {
       c.copy(ash);
@@ -49,14 +62,14 @@ export function buildGround(slice: JanSlice): THREE.Mesh {
   );
 }
 
-export function buildRoads(slice: JanSlice): THREE.Group {
+export function buildRoads(slice: GroundWorld): THREE.Group {
   const g = new THREE.Group();
   const mat = new THREE.MeshStandardMaterial({
     color: ASPHALT,
     roughness: 0.82,
     side: THREE.DoubleSide,
   });
-  for (const road of slice.nearbyRoads) {
+  for (const road of ribbonRoads(slice)) {
     const mesh = roadRibbon(road.points, roadWidth(road.highway), slice);
     if (mesh) {
       mesh.material = mat;
@@ -69,7 +82,7 @@ export function buildRoads(slice: JanSlice): THREE.Group {
 function nearestRoadDist(
   x: number,
   z: number,
-  roads: JanSlice['nearbyRoads'],
+  roads: readonly RoadPoly[],
 ): { dist: number; halfW: number } | null {
   let best: { dist: number; halfW: number } | null = null;
   for (const road of roads) {
@@ -104,7 +117,7 @@ function pointSegDist(
 function roadRibbon(
   points: number[][],
   width: number,
-  slice: JanSlice,
+  slice: Pick<GroundWorld, 'terrain'>,
 ): THREE.Mesh | null {
   if (points.length < 2) {
     return null;

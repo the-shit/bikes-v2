@@ -1,11 +1,12 @@
 /**
- * Ownership: M1 Three.js view of the Jan Ave slice. No sim here.
- * Talks via: JanSlice + SessionSnapshot. Do not step physics.
+ * Ownership: Three.js view of the Mesa playfield. No sim here.
+ * Talks via: MesaPlay + SessionSnapshot. Do not step physics.
  * Budget: keep this file under ~300 lines.
  */
 
 import * as THREE from 'three';
 import type { SessionSnapshot } from '../core/session';
+import { dressMesa, markPostFlip } from './dress';
 import { buildGround, buildRoads } from './ground';
 import { placeHeroes } from './heroes';
 import { loadKitRig } from './kit';
@@ -18,6 +19,7 @@ import {
   syncZombieFx,
   zombieSquash,
 } from './fx';
+import type { MesaPlay } from './mesa';
 import {
   buildBike,
   buildCircleK,
@@ -29,6 +31,7 @@ import {
   buildShambler,
   buildWalker,
 } from './props';
+import { flipSkin } from './skin';
 import type { JanSlice } from './slice';
 
 export type WorldView = {
@@ -36,14 +39,19 @@ export type WorldView = {
   sync(snap: SessionSnapshot): void;
 };
 
-export function createWorldView(slice: JanSlice): WorldView {
+export function createWorldView(slice: JanSlice | MesaPlay): WorldView {
   const group = new THREE.Group();
-  group.name = 'jan-slice';
+  group.name = 'mesa';
 
-  group.add(new THREE.HemisphereLight(0xfff0d8, 0x8a6a45, 0.85));
+  const hemi = new THREE.HemisphereLight(0xfff0d8, 0x8a6a45, 0.85);
+  group.add(hemi);
   const sun = new THREE.DirectionalLight(0xffe0a8, 1.25);
   sun.position.set(40, 55, 25);
   group.add(sun);
+  const moon = new THREE.DirectionalLight(0x8a9ac8, 0);
+  moon.position.set(-40, 60, -80);
+  group.add(moon);
+  let dressPost: THREE.Group | null = null;
 
   group.add(buildGround(slice));
   group.add(buildRoads(slice));
@@ -81,6 +89,11 @@ export function createWorldView(slice: JanSlice): WorldView {
       ),
     );
   }
+  if ('spots' in slice) {
+    const dress = dressMesa(slice);
+    group.add(dress.root);
+    dressPost = dress.post;
+  }
 
   const bikeMeshes = new Map<number, THREE.Group>();
   const walkMeshes = new Map<number, THREE.Group>();
@@ -108,6 +121,16 @@ export function createWorldView(slice: JanSlice): WorldView {
     group,
     sync(snap) {
       fxClock += 1 / 60;
+      const skin = flipSkin(snap.story.flip);
+      hemi.color.setHex(skin.hemiSky);
+      hemi.groundColor.setHex(skin.hemiGround);
+      hemi.intensity = skin.hemiInt;
+      sun.color.setHex(skin.sun);
+      sun.intensity = skin.sunInt;
+      moon.intensity = skin.moonInt;
+      if (dressPost) {
+        markPostFlip(dressPost, snap.story.flip.phase === 'post');
+      }
       syncKeyed(group, bikeMeshes, snap.bikes.map((b) => b.id), () => {
         const mesh = kitProto ? kitProto.clone(true) : buildBike(true);
         attachRiderFx(mesh);

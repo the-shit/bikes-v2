@@ -102,6 +102,21 @@ body {
   background: rgba(255, 248, 230, 0.72);
 }
 
+#hud .story {
+  align-self: flex-start;
+  padding: 6px 12px;
+  background: rgba(255, 236, 170, 0.92);
+  border: 2px solid #2a2418;
+  color: #2a2418;
+  font-weight: 700;
+  max-width: min(420px, 90vw);
+}
+
+#hud .story[data-phase='turning'] {
+  background: #ffb347;
+  transform: rotate(-2deg);
+}
+
 #hud .lock-banner {
   align-self: flex-start;
   padding: 6px 14px;

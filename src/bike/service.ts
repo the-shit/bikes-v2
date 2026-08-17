@@ -35,8 +35,25 @@ export const CIRCLE_K_PROFILE: ChargeProfile = {
   toast: 'Circle K — slushie charge',
 };
 
-export function profileFor(kind: 'garage' | 'circlek'): ChargeProfile {
-  return kind === 'circlek' ? CIRCLE_K_PROFILE : GARAGE_PROFILE;
+export const LANDMARK_PROFILE: ChargeProfile = {
+  mode: 'floor',
+  fillTo: 0.6,
+  airTo: 0.8,
+  restockTubes: TIRE_DEFAULTS.startTubes,
+  restockPatches: TIRE_DEFAULTS.startPatches,
+  toast: 'Landmark outlet — pallet juice',
+};
+
+export function profileFor(
+  kind: 'garage' | 'circlek' | 'landmark',
+): ChargeProfile {
+  if (kind === 'circlek') {
+    return CIRCLE_K_PROFILE;
+  }
+  if (kind === 'landmark') {
+    return LANDMARK_PROFILE;
+  }
+  return GARAGE_PROFILE;
 }
 
 export function applyChargeProfile(
