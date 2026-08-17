@@ -22,6 +22,7 @@ Read `AGENTS.md` first. Then the open GitHub issue tagged `asset`.
 
 - Issue labeled `asset`
 - Hero buildings, textures, palms, Circle K, 7620 ranch
+- Bike / rider kit (`tools/models/kit/`)
 - `/assets`
 
 ## Queue

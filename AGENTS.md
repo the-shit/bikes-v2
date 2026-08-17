@@ -25,6 +25,7 @@ Budget: no file over ~300 lines. Systems talk via events/state, not each other's
 ## Art
 
 - **Heroes** (7620, later Circle K): `tools/models/*.py` → `public/models/`. Asset issues are labeled `asset`.
+- **Kit** (bike, rider, snap sockets): `tools/models/kit/`. Fashion parts; do not one-off cubes. See `tools/models/KIT.md`.
 - **Fill streets:** instanced later. Do not clone the 7620 GLB.
 - v1 meshes are donors. Rebuild against the real pin + photos.
 
