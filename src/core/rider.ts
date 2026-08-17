@@ -41,6 +41,7 @@ export type RiderSpawn = {
   x: number;
   z: number;
   yaw: number;
+  speed?: number;
 };
 
 export function createRider(
@@ -54,6 +55,7 @@ export function createRider(
     z: spawn.z,
     yaw: spawn.yaw,
     y: heightAt(spawn.x, spawn.z),
+    speed: spawn.speed,
   });
   const desired = desiredCamera(bike);
   return {

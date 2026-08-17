@@ -5,7 +5,7 @@
  */
 
 import { applyDamage, isDead } from '../combat/damage';
-import { isMeleeActive, meleeHits, MELEE } from '../combat/melee';
+import { isMeleeActive, markStruck, meleeHits, MELEE } from '../combat/melee';
 import { RAM, ramDamage, ramHits } from '../combat/ram';
 import { idleIntent, type Intent } from '../input/intents';
 import type { CameraFrame } from '../world/camera';
@@ -122,18 +122,21 @@ export function createSession(opts: {
         ),
       );
 
-      const live = zombies.filter((z) => !z.dead);
       for (const rider of riders) {
         if (isMeleeActive(rider.melee) && !rider.melee.struck) {
-          rider.melee.struck = true;
-          for (const id of meleeHits(rider.bike, live)) {
+          riders = riders.map((r) =>
+            r.id === rider.id ? { ...r, melee: markStruck(r.melee) } : r,
+          );
+          const meleeLive = zombies.filter((z) => !z.dead);
+          for (const id of meleeHits(rider.bike, meleeLive)) {
             hurt(rider.id, id, MELEE.damage, 'melee');
           }
         }
+        const ramLive = zombies.filter((z) => !z.dead && z.hitCd <= 0);
         const ramIds = ramHits(
           { id: rider.id, x: rider.bike.x, z: rider.bike.z },
           Math.abs(rider.bike.speed),
-          live.filter((z) => z.hitCd <= 0),
+          ramLive,
         );
         const dmg = ramDamage(Math.abs(rider.bike.speed)).damage;
         for (const id of ramIds) {

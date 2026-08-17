@@ -3,6 +3,7 @@ import { applyDamage, createHealth, isDead } from '../src/combat/damage';
 import {
   createMelee,
   isMeleeActive,
+  markStruck,
   meleeHits,
   MELEE,
   stepMelee,
@@ -36,6 +37,14 @@ describe('melee', () => {
     expect(front).toEqual([1]);
     expect(back).toEqual([]);
     expect(far).toEqual([]);
+  });
+
+  it('markStruck is a new state, not a field poke', () => {
+    const idle = createMelee();
+    const next = markStruck(idle);
+    expect(idle.struck).toBe(false);
+    expect(next.struck).toBe(true);
+    expect(next).not.toBe(idle);
   });
 });
 

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createSession } from '../src/core/session';
+import type { RiderSpawn } from '../src/core/rider';
 import { idleIntent } from '../src/input/intents';
 import { createTerrain } from '../src/world/terrain';
 import { HOME_CAMERA_BLOCKERS_LOCAL } from '../src/world/home';
@@ -9,7 +10,7 @@ const DT = 1 / 60;
 
 function makeSession(
   pins: { x: number; z: number }[] = [{ x: 0, z: 4 }],
-  riders = [{ id: 1, x: 0, z: 0, yaw: 0 }],
+  riders: RiderSpawn[] = [{ id: 1, x: 0, z: 0, yaw: 0 }],
 ) {
   return createSession({
     riders,
@@ -69,5 +70,22 @@ describe('session combat proof', () => {
     }
     expect(z.aggro).toBe(true);
     expect(z.z).toBeLessThan(0);
+  });
+
+  it('two riders cannot ram the same shambler in one tick', () => {
+    const session = makeSession([{ x: 0, z: 0.2 }], [
+      { id: 1, x: 0, z: 0, yaw: 0, speed: 20 },
+      { id: 2, x: 0.05, z: 0, yaw: 0, speed: 20 },
+    ]);
+    const hits: { riderId: number; kind: string }[] = [];
+    session.bus.on('combat.hit', (e) => {
+      hits.push(e as { riderId: number; kind: string });
+    });
+    session.tick(DT, { 1: idleIntent(), 2: idleIntent() });
+    const rams = hits.filter((h) => h.kind === 'ram');
+    expect(rams).toHaveLength(1);
+    const snap = session.snapshot();
+    expect(snap.zombies[0].dead).toBe(true);
+    expect(snap.riders.filter((r) => r.kills > 0)).toHaveLength(1);
   });
 });

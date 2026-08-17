@@ -54,6 +54,10 @@ export function isMeleeActive(state: MeleeState): boolean {
   return state.phase === 'active';
 }
 
+export function markStruck(state: MeleeState): MeleeState {
+  return { ...state, struck: true };
+}
+
 export type Pose2 = { x: number; z: number };
 
 export function meleeHits(
