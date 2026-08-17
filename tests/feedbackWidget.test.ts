@@ -65,9 +65,12 @@ describe('feedback widget flow', () => {
     expect(document.querySelector('.fb-card strong')?.textContent).toBe('The F-Widget');
     expect(document.querySelector('[data-fb-meta]')?.textContent).toMatch(/xyz 8\.0, 6\.0, 12\.0/);
 
+    expect(document.querySelector('.fb-help')?.textContent).toMatch(/F-bomb/);
     const text = document.querySelector('[data-fb-text]') as HTMLTextAreaElement;
     text.value = 'the cube is lonely out here';
-    (document.querySelector('[data-fb-send]') as HTMLButtonElement).click();
+    text.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }),
+    );
 
     await vi.waitFor(() => {
       expect(document.querySelector('[data-fb-status]')?.textContent).toMatch(/Got it/);
@@ -113,6 +116,43 @@ describe('feedback widget flow', () => {
       expect(document.querySelector('[data-fb-status]')?.textContent).toMatch(/Whoops/);
     });
     expect(widget.isOpen).toBe(true);
+    widget.destroy();
+  });
+
+  it('Shift+Enter does not send from the textarea', async () => {
+    const fetchImpl = vi.fn(async () => ({ ok: true, status: 200 }));
+    vi.stubGlobal('fetch', fetchImpl);
+    const bus = createBus();
+    bindFeedbackSnapshot(bus, () => ({
+      position: null,
+      speed: 0,
+      street: null,
+      lat: null,
+      lon: null,
+      pressure: null,
+      buildId: 'dev',
+      at: '2026-08-16T00:00:00.000Z',
+    }));
+    bus.on('feedback:capture-request', () => {
+      bus.emit('feedback:capture', { dataUrl: null });
+    });
+    const widget = createFeedback(document.body, bus);
+    const unsub = mountFeedbackHotkey(bus);
+    widget.open();
+    await vi.waitFor(() => expect(widget.isOpen).toBe(true));
+    const text = document.querySelector('[data-fb-text]') as HTMLTextAreaElement;
+    text.value = 'line one';
+    text.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'Enter',
+        shiftKey: true,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    await Promise.resolve();
+    expect(fetchImpl).not.toHaveBeenCalled();
+    unsub();
     widget.destroy();
   });
 });

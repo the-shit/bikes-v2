@@ -23,7 +23,7 @@ export function isTypingTarget(target: TypingTarget | EventTarget | null): boole
   return Boolean(el.isContentEditable);
 }
 
-/** F opens, Esc closes, Cmd/Ctrl+Enter sends. Ride adapters ignore form targets. */
+/** F opens, Esc closes, Enter sends, Shift+Enter newlines. Capture so form stopPropagation still works. */
 export function mountFeedbackHotkey(bus: EventBus): () => void {
   const onKey = (event: KeyboardEvent) => {
     if (event.repeat || event.altKey) {
@@ -34,8 +34,12 @@ export function mountFeedbackHotkey(bus: EventBus): () => void {
       bus.emit('feedback:close', null);
       return;
     }
-    if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+    if (event.key === 'Enter' && !event.metaKey && !event.ctrlKey) {
       if (!isTypingTarget(event.target)) {
+        return;
+      }
+      const tag = (event.target as { tagName?: string }).tagName;
+      if (event.shiftKey && tag === 'TEXTAREA') {
         return;
       }
       event.preventDefault();
@@ -54,6 +58,6 @@ export function mountFeedbackHotkey(bus: EventBus): () => void {
     event.preventDefault();
     bus.emit('feedback:open', null);
   };
-  window.addEventListener('keydown', onKey);
-  return () => window.removeEventListener('keydown', onKey);
+  window.addEventListener('keydown', onKey, true);
+  return () => window.removeEventListener('keydown', onKey, true);
 }

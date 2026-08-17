@@ -43,13 +43,14 @@ export function createFeedback(
           <strong>The F-Widget</strong>
           <button type="button" class="fb-x" data-fb-close aria-label="Close">×</button>
         </header>
+        <p class="fb-help">Need help? Drop an F-bomb and we'll come right to your aid.</p>
         <label class="fb-field">
           <span>Your handle <em>(for glory if we build it)</em></span>
           <input type="text" data-fb-name maxlength="32" placeholder="e.g. Alex" autocomplete="nickname" />
         </label>
         <label class="fb-field">
           <span>What's up?</span>
-          <textarea data-fb-text rows="4" maxlength="2000" placeholder="Wobbly bike? Missing a jump? Hit F, type it — Esc closes, WASD works here"></textarea>
+          <textarea data-fb-text rows="4" maxlength="2000" placeholder="Wobbly bike? Missing a jump? Enter sends · Shift+Enter new line"></textarea>
         </label>
         <label class="fb-check">
           <input type="checkbox" data-fb-idea />
