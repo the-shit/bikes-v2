@@ -13,7 +13,7 @@ npm install
 npm run dev
 ```
 
-Open the URL Vite prints (default `http://localhost:5173`).
+Open the URL Vite prints (default `http://localhost:5173`). Hit **F** (or the **F-Widget** button) to send a note while riding.
 
 ## Scripts
 

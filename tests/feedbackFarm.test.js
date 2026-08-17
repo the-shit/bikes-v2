@@ -47,6 +47,7 @@ describe('GitHub / Mattermost farm format', () => {
     expect(body).toMatch(/East Jan Avenue/);
     expect(body).toMatch(/abc1234/);
     expect(body).toMatch(/bikes-v2\.jordanpartridge\.us/);
+    expect(body).toMatch(/Auto-filed by the F-Widget/);
   });
 
   it('tags bug-ish feedback', () => {
@@ -78,7 +79,7 @@ describe('GitHub / Mattermost farm format', () => {
       { name: 'Sam', message: 'hello farm', build: 'dev' },
       { number: 42, html_url: 'https://github.com/the-shit/bikes-v2/issues/42' },
     );
-    expect(text).toMatch(/Bikes v2 feedback/);
+    expect(text).toMatch(/The F-Widget/);
     expect(text).toMatch(/#42/);
     expect(text).toMatch(/github\.com\/the-shit\/bikes-v2\/issues\/42/);
   });

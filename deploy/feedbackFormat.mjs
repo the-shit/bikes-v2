@@ -58,7 +58,7 @@ export function formatMattermostMessage(data, issue = null) {
   const idea = data.featureIdea ? ' · **feature idea** (credit if shipped)' : '';
   const msg = intentText(data).slice(0, 2000);
   const lines = [
-    `#### Bikes v2 feedback`,
+    `#### The F-Widget`,
     `**${name}**${idea}`,
     ``,
     `> ${msg.replace(/\n/g, '\n> ')}`,
@@ -111,7 +111,7 @@ export function formatGitHubIssue(data) {
   if (data.screenshotUrl) {
     body.push(``, `![ride](${data.screenshotUrl})`);
   }
-  body.push(``, `_Auto-filed by Bikes v2 feedback farm_`);
+  body.push(``, `_Auto-filed by the F-Widget_`);
   return { title, body: body.join('\n'), labels };
 }
 

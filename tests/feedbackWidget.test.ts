@@ -61,6 +61,8 @@ describe('feedback widget flow', () => {
     await vi.waitFor(() => {
       expect(document.querySelector('.fb-modal')?.hasAttribute('hidden')).toBe(false);
     });
+    expect(document.querySelector('.fb-open')?.textContent?.trim()).toBe('F-Widget');
+    expect(document.querySelector('.fb-card strong')?.textContent).toBe('The F-Widget');
     expect(document.querySelector('[data-fb-meta]')?.textContent).toMatch(/xyz 8\.0, 6\.0, 12\.0/);
 
     const text = document.querySelector('[data-fb-text]') as HTMLTextAreaElement;
