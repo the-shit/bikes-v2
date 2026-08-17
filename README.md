@@ -28,7 +28,7 @@ Open the URL Vite prints (default `http://localhost:5173`).
 
 ## Stack
 
-- Three.js + Vite
+- TypeScript + Three.js + Vite
 - Module boundaries: `core/`, `input/`, `bike/`, `world/`, `combat/`, `zombies/`, `ui/`
 - Budget: no file over ~300 lines; systems talk via events/state, not each other's internals
 
