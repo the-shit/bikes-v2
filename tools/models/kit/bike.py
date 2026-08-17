@@ -46,6 +46,9 @@ def build_bike():
     parts.append(cyl("seat-post", 0.018, 0.28, (0, -0.22, 0.78), dark))
     parts.append(box("seat", (0.14, 0.28, 0.05), (0, -0.24, 0.94), dark))
     parts.append(socket("socket-seat", (0, -0.22, 0.96)))
+    parts.append(socket("socket-rack", (0, -0.42, 0.88)))
+    parts.append(socket("socket-armor", (0, 0.08, 0.58)))
+    parts.append(socket("socket-mount", (0, 0.56, 1.04)))
 
     parts.append(box("pack", (0.12, 0.46, 0.14), (0, 0.08, 0.50), dark, rot=(-0.55, 0, 0)))
     parts.append(box("pack-stripe", (0.125, 0.40, 0.03), (0, 0.10, 0.56), accent, rot=(-0.55, 0, 0)))

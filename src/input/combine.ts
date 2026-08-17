@@ -22,6 +22,7 @@ export function combineIntents(...parts: readonly Intent[]): Intent {
     out.repair = out.repair || p.repair;
     out.assistUp = out.assistUp || p.assistUp;
     out.assistDown = out.assistDown || p.assistDown;
+    out.use = out.use || p.use;
   }
   return out;
 }

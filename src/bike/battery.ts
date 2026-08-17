@@ -72,6 +72,7 @@ export function stepBattery(
   state: BatteryState,
   throttle: number,
   dt: number,
+  drainScale = 1,
 ): BatteryStep {
   if (!Number.isFinite(dt) || dt <= 0) {
     return { battery: { ...state }, toast: '' };
@@ -81,7 +82,10 @@ export function stepBattery(
   const gear = assistInfo(state.assist);
   const before = charge;
   if (thr > 0.05 && charge > 0 && gear.drain > 0) {
-    charge = Math.max(0, charge - BATTERY_DEFAULTS.drain * thr * gear.drain * dt);
+    charge = Math.max(
+      0,
+      charge - BATTERY_DEFAULTS.drain * thr * gear.drain * dt * drainScale,
+    );
   } else if ((thr < 0.05 || gear.drain === 0) && charge < 1) {
     const regenMul = gear.drain === 0 ? 1.4 : 1;
     charge = Math.min(1, charge + BATTERY_DEFAULTS.regen * dt * regenMul);

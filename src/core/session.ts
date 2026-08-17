@@ -1,7 +1,6 @@
 /**
  * Ownership: sim tick — riders + world. No WebGL, no LLM.
  * Talks via: per-rider Intent map. World / rider / view stay separable.
- * Budget: keep this file under ~300 lines.
  */
 
 import { createBattery } from '../bike/battery';
@@ -12,11 +11,13 @@ import { FEEDBACK, hitImpulse } from '../combat/feedback';
 import { lockSteerAssist } from '../combat/lock';
 import { isMeleeActive, markStruck, meleeHits, MELEE } from '../combat/melee';
 import { RAM, ramDamage, ramHits } from '../combat/ram';
+import { throwDamage } from '../combat/throwables';
 import { idleIntent, type Intent } from '../input/intents';
 import type { CameraFrame } from '../world/camera';
 import type { ChargePoint } from '../world/charge';
-import type { Box3 } from '../world/home';
+import type { CuratedSpot } from '../world/curation';
 import { beginFlip } from '../world/flip';
+import type { Box3 } from '../world/home';
 import type { Ramp } from '../world/jumps';
 import {
   createStory,
@@ -47,6 +48,7 @@ import {
   type HitEvent,
   type SessionSnapshot,
 } from './snap';
+import { createSurvive, ramMul, stepSurvive } from './survive';
 
 export type { AudioCue, HitEvent, RiderSnapshot, SessionSnapshot } from './snap';
 
@@ -74,6 +76,7 @@ export function createSession(opts: {
   chargePoints?: readonly ChargePoint[];
   ramps?: readonly Ramp[];
   story?: WorldStory;
+  spots?: readonly CuratedSpot[];
 }): Session {
   const bus = createBus();
   const heightAt = (x: number, z: number) => opts.terrain.sampleHeight(x, z);
@@ -109,6 +112,11 @@ export function createSession(opts: {
       ? seedShamblers(opts.shamblerPins, heightAt)
       : [];
   let hitstopT = 0;
+  const survive = createSurvive({
+    spots: opts.spots,
+    flipped: story.flip.phase === 'post',
+  });
+  survive.nextZombieId = 1 + zombies.reduce((m, z) => Math.max(m, z.id), 0);
 
   function hurt(
     riderId: RiderId,
@@ -126,19 +134,15 @@ export function createSession(opts: {
         if (r.id !== riderId) {
           return r;
         }
-        const toasted = withImpact(
-          withToast(
-            r,
-            dead
-              ? kind === 'ram'
-                ? HIT_TOAST.ramKill
-                : HIT_TOAST.meleeKill
-              : kind === 'ram'
-                ? HIT_TOAST.ram
-                : HIT_TOAST.melee,
-          ),
-          kind,
-        );
+        const toast =
+          kind === 'ram'
+            ? dead
+              ? HIT_TOAST.ramKill
+              : HIT_TOAST.ram
+            : dead
+              ? HIT_TOAST.meleeKill
+              : HIT_TOAST.melee;
+        const toasted = withImpact(withToast(r, toast), kind);
         return dead ? { ...toasted, kills: r.kills + 1 } : toasted;
       });
       bus.emit<HitEvent>('combat.hit', {
@@ -186,6 +190,7 @@ export function createSession(opts: {
       story = steppedStory.story;
       if (steppedStory.seedZombies && zombies.length === 0) {
         zombies = seedShamblers(opts.shamblerPins, heightAt);
+        survive.nextZombieId = 1 + zombies.reduce((m, z) => Math.max(m, z.id), 0);
       }
       if (steppedStory.toast) {
         riders = riders.map((r) => withToast(r, steppedStory.toast as string));
@@ -249,7 +254,8 @@ export function createSession(opts: {
           Math.abs(rider.bike.speed),
           ramLive,
         );
-        const dmg = ramDamage(Math.abs(rider.bike.speed)).damage;
+        const dmg =
+          ramDamage(Math.abs(rider.bike.speed)).damage * ramMul(rider, bikes);
         for (const id of ramIds) {
           hurt(rider.id, id, dmg, 'ram');
         }
@@ -261,6 +267,22 @@ export function createSession(opts: {
         return { ...next, y: heightAt(next.x, next.z) };
       });
 
+      const lived = stepSurvive({ ...survive, riders, bikes, zombies }, dt, intents, {
+        flipped: story.flip.phase === 'post',
+        heightAt,
+        chargePoints,
+        pins: opts.shamblerPins,
+      });
+      Object.assign(survive, lived.world);
+      riders = survive.riders;
+      bikes = survive.bikes;
+      zombies = survive.zombies;
+      for (const th of lived.throws) {
+        for (const id of th.ids) {
+          hurt(th.riderId, id, throwDamage(th.kind), 'throw');
+        }
+      }
+
       riders = riders.map((rider) =>
         stepRiderCamera(
           holdRiderLock(rider, zombies, 0),
@@ -271,7 +293,13 @@ export function createSession(opts: {
       );
     },
     snapshot() {
-      return toSnapshot(riders, bikes, zombies, hitstopT, story);
+      const { sky, houses, shots, horde } = survive;
+      return toSnapshot(riders, bikes, zombies, hitstopT, story, {
+        sky,
+        houses,
+        shots,
+        horde,
+      });
     },
   };
 }

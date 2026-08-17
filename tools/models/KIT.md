@@ -17,6 +17,9 @@ Writes `public/models/kit-bike.glb` and `kit-rider.glb`.
 | `socket-seat` | bike | snap rider hip |
 | `socket-bars` | bike | hands / camera |
 | `socket-hub-f` / `socket-hub-r` | bike | spin later |
+| `socket-rack` | bike | cargo rack upgrade |
+| `socket-armor` | bike | frame plates |
+| `socket-mount` | bike | weapon mount / slingshot |
 | `socket-head` | rider | hats only — **no helmets** game-wide |
 | `socket-hands` | rider | bars reach |
 

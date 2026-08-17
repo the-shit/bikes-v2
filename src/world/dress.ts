@@ -41,7 +41,9 @@ export function dressMesa(play: MesaPlay): DressGroup {
   for (const spot of play.spots) {
     const y = heightAt(spot.x, spot.z);
     if (spot.kind === 'loot') {
-      root.add(buildLootFlag(spot, y));
+      const flag = buildLootFlag(spot, y);
+      flag.name = `loot-flag-${spot.id}`;
+      root.add(flag);
     }
     if (spot.kind === 'choke') {
       root.add(buildChokeCone(spot, y));

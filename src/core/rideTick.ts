@@ -5,6 +5,7 @@
  */
 
 import { cycleAssist, stepBattery } from '../bike/battery';
+import { drainScale } from '../bike/upgrades';
 import { rideFeel } from '../bike/feel';
 import {
   bikeForRider,
@@ -55,7 +56,12 @@ export function stepRideWorld(
       onFoot: !mounted,
     });
     if (wb) {
-      const batt = stepBattery(wb.battery, intent.throttle, dt);
+      const batt = stepBattery(
+        wb.battery,
+        intent.throttle,
+        dt,
+        drainScale(wb.upgrades),
+      );
       const tires = stepTires(wb.tires, next.bike, dt, hazards);
       bikes = replaceBike(bikes, {
         ...wb,

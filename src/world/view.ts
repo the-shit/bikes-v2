@@ -31,7 +31,8 @@ import {
   buildShambler,
   buildWalker,
 } from './props';
-import { flipSkin } from './skin';
+import { playSkin } from './skin';
+import { syncSurviveFx, tintUpgrades, tintZombie } from './surviveFx';
 import type { JanSlice } from './slice';
 
 export type WorldView = {
@@ -121,7 +122,7 @@ export function createWorldView(slice: JanSlice | MesaPlay): WorldView {
     group,
     sync(snap) {
       fxClock += 1 / 60;
-      const skin = flipSkin(snap.story.flip);
+      const skin = playSkin(snap.story.flip, snap.sky.nightAmt);
       hemi.color.setHex(skin.hemiSky);
       hemi.groundColor.setHex(skin.hemiGround);
       hemi.intensity = skin.hemiInt;
@@ -156,6 +157,7 @@ export function createWorldView(slice: JanSlice | MesaPlay): WorldView {
         if (rider) {
           syncRiderFx(mesh, rider);
         }
+        tintUpgrades(mesh, b.upgrades.equipped);
       }
       const walkers = snap.riders.filter((r) => r.mountedBikeId == null);
       syncKeyed(group, walkMeshes, walkers.map((r) => r.id), buildWalker);
@@ -186,10 +188,13 @@ export function createWorldView(slice: JanSlice | MesaPlay): WorldView {
         mesh.rotation.y = z.yaw;
         mesh.rotation.x = 0;
         const squash = zombieSquash(z);
-        mesh.scale.set(squash.x, squash.y, squash.z);
+        const fat = z.kind === 'bruiser' ? 1.25 : z.kind === 'sprinter' ? 0.88 : 1;
+        mesh.scale.set(squash.x * fat, squash.y, squash.z * fat);
         mesh.visible = true;
+        tintZombie(mesh, z.kind, z.soakedT);
         syncZombieFx(mesh, z);
       }
+      syncSurviveFx(group, snap);
       const liveLock = new Set(
         snap.riders.filter((r) => r.lock.targetId != null).map((r) => r.id),
       );

@@ -8,6 +8,7 @@ import { createAirState, type AirState } from './air';
 import { createBattery, type BatteryState } from './battery';
 import { createBikeState, type BikeState } from './physics';
 import { createTires, type TireState } from './tires';
+import { createUpgrades, type UpgradeState } from './upgrades';
 
 export const MOUNT_DEFAULTS = {
   radius: 2.4,
@@ -20,6 +21,7 @@ export type WorldBike = {
   battery: BatteryState;
   tires: TireState;
   occupantId: number | null;
+  upgrades: UpgradeState;
 };
 
 export function createWorldBike(
@@ -34,6 +36,7 @@ export function createWorldBike(
     battery: createBattery(),
     tires: createTires(),
     occupantId,
+    upgrades: createUpgrades(),
   };
 }
 

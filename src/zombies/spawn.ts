@@ -4,7 +4,7 @@
  * Budget: keep this file under ~300 lines.
  */
 
-import { createShambler, type Shambler } from './ai';
+import { createShambler, type Shambler, type ZombieKind } from './ai';
 
 export type SpawnRequest = {
   x: number;
@@ -22,4 +22,14 @@ export function seedShamblers(
   heightAt: (x: number, z: number) => number,
 ): Shambler[] {
   return points.map((p, i) => createShambler(i + 1, p.x, p.z, heightAt(p.x, p.z)));
+}
+
+export function spawnZombie(
+  id: number,
+  x: number,
+  z: number,
+  heightAt: (x: number, z: number) => number,
+  kind: ZombieKind = 'shambler',
+): Shambler {
+  return createShambler(id, x, z, heightAt(x, z), kind);
 }

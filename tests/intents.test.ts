@@ -22,6 +22,7 @@ describe('intents', () => {
       repair: false,
       assistUp: false,
       assistDown: false,
+      use: false,
     });
   });
 
@@ -64,5 +65,15 @@ describe('intents', () => {
     expect(intent.repair).toBe(false);
     expect(intent.assistUp).toBe(true);
     expect(intent.lock).toBe(false);
+  });
+
+  it('maps T to toss and X to loot/use', () => {
+    const state = createInputState();
+    setKey(state, 'KeyT', true);
+    expect(sampleInput(state).fire).toBe(true);
+    setKey(state, 'KeyT', false);
+    setKey(state, 'KeyX', true);
+    expect(sampleInput(state).use).toBe(true);
+    expect(sampleInput(state).fire).toBe(false);
   });
 });
