@@ -9,8 +9,11 @@ import { currentBuildId } from './buildInfo';
 import { createBus } from './core/events';
 import { advanceLoop, createLoop } from './core/loop';
 import { createSession } from './core/session';
+import { combineIntents } from './input/combine';
+import { createGamepadAdapter } from './input/gamepad';
 import { mountFeedbackHotkey } from './input/hotkeys';
 import { createKeyboardAdapter } from './input/keyboard';
+import { createTouchAdapter } from './input/touch';
 import { bindFeedbackCapture } from './ui/capture';
 import { createFeedback } from './ui/feedback';
 import { createFpsHud } from './ui/fps';
@@ -80,6 +83,8 @@ export async function createApp(
 
   const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 600);
   const keys = createKeyboardAdapter(window);
+  const pad = createGamepadAdapter();
+  const touch = createTouchAdapter(canvas);
   const fps = createFpsHud(fpsEl);
   const hud = createHud(hudEl, slice.chargePoints);
   const bus = createBus();
@@ -130,7 +135,9 @@ export async function createApp(
   applyCamera();
 
   function tick(dt: number): void {
-    session.tick(dt, { [localRiderId]: keys.sample() });
+    session.tick(dt, {
+      [localRiderId]: combineIntents(keys.sample(), pad.sample(), touch.sample()),
+    });
   }
 
   function frame(now: number): void {
@@ -164,6 +171,7 @@ export async function createApp(
       cancelAnimationFrame(raf);
       window.removeEventListener('resize', resize);
       keys.dispose();
+      touch.dispose();
       unsubHotkey();
       unsubSnapshot();
       capture.dispose();
