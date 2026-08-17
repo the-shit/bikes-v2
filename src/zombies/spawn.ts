@@ -4,13 +4,22 @@
  * Budget: keep this file under ~300 lines.
  */
 
+import { createShambler, type Shambler } from './ai';
+
 export type SpawnRequest = {
   x: number;
   z: number;
   kind: string;
 };
 
-/** Stub. M1 (one type) then M4 (variety). */
+/** M1 seeds a fixed shambler line; no timed waves. */
 export function nextSpawns(_dt: number): SpawnRequest[] {
   return [];
+}
+
+export function seedShamblers(
+  points: ReadonlyArray<{ x: number; z: number }>,
+  heightAt: (x: number, z: number) => number,
+): Shambler[] {
+  return points.map((p, i) => createShambler(i + 1, p.x, p.z, heightAt(p.x, p.z)));
 }
