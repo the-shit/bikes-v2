@@ -1,15 +1,21 @@
 /**
- * Ownership: boot Jan Ave slice + intent-driven session + chase cam.
- * Talks via: session snapshot. No raw key handling.
+ * Ownership: boot Jan Ave slice + intent-driven session + chase cam + feedback.
+ * Talks via: session snapshot and feedback events. No raw key handling.
  * Budget: keep this file under ~300 lines.
  */
 
 import * as THREE from 'three';
+import { currentBuildId } from './buildInfo';
+import { createBus } from './core/events';
 import { advanceLoop, createLoop } from './core/loop';
 import { createSession } from './core/session';
+import { mountFeedbackHotkey } from './input/hotkeys';
 import { createKeyboardAdapter } from './input/keyboard';
+import { bindFeedbackCapture } from './ui/capture';
+import { createFeedback } from './ui/feedback';
 import { createFpsHud } from './ui/fps';
 import { createHud } from './ui/hud';
+import { bindFeedbackSnapshot } from './ui/snapshot';
 import { loadMesaBake } from './world/osm';
 import { buildJanSlice } from './world/slice';
 import { createWorldView } from './world/view';
@@ -74,6 +80,25 @@ export async function createApp(
   const keys = createKeyboardAdapter(window);
   const fps = createFpsHud(fpsEl);
   const hud = createHud(hudEl);
+  const bus = createBus();
+  const feedback = createFeedback(document.body, bus);
+  const unsubHotkey = mountFeedbackHotkey(bus);
+  const unsubSnapshot = bindFeedbackSnapshot(bus, () => {
+    const rider = session.snapshot().riders.find((r) => r.id === localRiderId);
+    return {
+      position: rider
+        ? { x: rider.bike.x, y: rider.bike.y, z: rider.bike.z }
+        : null,
+      speed: rider ? rider.bike.speed : 0,
+      street: slice.jan?.name ?? null,
+      lat: null,
+      lon: null,
+      pressure: null,
+      buildId: currentBuildId(),
+      at: new Date().toISOString(),
+    };
+  });
+  const capture = bindFeedbackCapture(bus, canvas);
   const loop = createLoop();
   let last = performance.now();
   let running = true;
@@ -118,6 +143,7 @@ export async function createApp(
         hud.update(snap, localRiderId, loop.fps);
         fps.update(loop.fps);
         renderer.render(scene, camera);
+        capture.afterRender();
       },
     });
   }
@@ -132,6 +158,10 @@ export async function createApp(
       cancelAnimationFrame(raf);
       window.removeEventListener('resize', resize);
       keys.dispose();
+      unsubHotkey();
+      unsubSnapshot();
+      capture.dispose();
+      feedback.destroy();
       renderer.dispose();
     },
   };

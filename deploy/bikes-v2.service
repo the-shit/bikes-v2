@@ -1,5 +1,5 @@
 [Unit]
-Description=Bikes v2 static site (bikes-v2.jordanpartridge.us)
+Description=Bikes v2 static site + feedback API (bikes-v2.jordanpartridge.us)
 After=network.target
 
 [Service]

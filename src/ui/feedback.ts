@@ -1,16 +1,221 @@
 /**
- * Ownership: in-ride feedback capture → jsonl intake.
- * Talks via: snapshot from core state. Widget ships in M1 (todo 520).
+ * Ownership: in-ride feedback widget. Snapshot/screenshot via events only.
+ * Talks via: EventBus feedback:* topics. Do not import bike/world/combat.
  * Budget: keep this file under ~300 lines.
  */
 
+import type { EventBus } from '../core/events';
+import { collectCapture } from './capture';
+import {
+  collectSnapshot,
+  formatSnapshotLine,
+  type RideSnapshot,
+} from './snapshot';
+import {
+  buildFeedbackPayload,
+  getStoredPlayerName,
+  storePlayerName,
+  submitFeedback,
+  validateFeedbackDraft,
+} from './submit';
+
 export type FeedbackWidget = {
   open(): void;
+  close(): void;
+  destroy(): void;
+  readonly isOpen: boolean;
 };
 
-/** Stub. Do not invent a UI here — M1 owns the seamless capture. */
-export function createFeedback(): FeedbackWidget {
+export function createFeedback(
+  root: HTMLElement,
+  bus: EventBus,
+): FeedbackWidget {
+  const wrap = document.createElement('div');
+  wrap.id = 'feedback-root';
+  wrap.innerHTML = `
+    <button type="button" class="fb-open" data-fb-open aria-haspopup="dialog">
+      Feedback
+    </button>
+    <div class="fb-modal" data-fb-modal hidden role="dialog" aria-modal="true" aria-label="Send feedback">
+      <div class="fb-card">
+        <header>
+          <strong>Feedback &amp; ideas</strong>
+          <button type="button" class="fb-x" data-fb-close aria-label="Close">×</button>
+        </header>
+        <label class="fb-field">
+          <span>Your name <em>(for credit if we build it)</em></span>
+          <input type="text" data-fb-name maxlength="32" placeholder="e.g. Alex" autocomplete="nickname" />
+        </label>
+        <label class="fb-field">
+          <span>Message</span>
+          <textarea data-fb-text rows="4" maxlength="2000" placeholder="Bug, vibe, or idea — F opens, Esc closes, WASD types here"></textarea>
+        </label>
+        <label class="fb-check">
+          <input type="checkbox" data-fb-idea />
+          <span>This is a feature idea — credit me if it ships</span>
+        </label>
+        <div class="fb-meta" data-fb-meta></div>
+        <footer>
+          <button type="button" class="fb-send" data-fb-send>Send</button>
+          <span class="fb-status" data-fb-status></span>
+        </footer>
+      </div>
+    </div>
+  `;
+  root.appendChild(wrap);
+
+  const modal = wrap.querySelector('[data-fb-modal]') as HTMLElement;
+  const text = wrap.querySelector('[data-fb-text]') as HTMLTextAreaElement;
+  const nameInput = wrap.querySelector('[data-fb-name]') as HTMLInputElement;
+  const ideaCheck = wrap.querySelector('[data-fb-idea]') as HTMLInputElement;
+  const status = wrap.querySelector('[data-fb-status]') as HTMLElement;
+  const meta = wrap.querySelector('[data-fb-meta]') as HTMLElement;
+
+  const stopRideKeys = (event: Event) => event.stopPropagation();
+  for (const el of [text, nameInput]) {
+    el.addEventListener('keydown', stopRideKeys);
+    el.addEventListener('keyup', stopRideKeys);
+    el.addEventListener('keypress', stopRideKeys);
+  }
+
+  nameInput.value = getStoredPlayerName();
+
+  let opening = false;
+  let snapshot: RideSnapshot | null = null;
+  let screenshot: string | null = null;
+
+  function isOpen(): boolean {
+    return !modal.hidden;
+  }
+
+  async function open(): Promise<void> {
+    if (isOpen() || opening) {
+      return;
+    }
+    opening = true;
+    try {
+      const [snap, shot] = await Promise.all([
+        collectSnapshot(bus),
+        collectCapture(bus),
+      ]);
+      snapshot = snap;
+      screenshot = shot;
+      meta.textContent = formatSnapshotLine(snap);
+      status.textContent = '';
+      modal.hidden = false;
+      bus.emit('feedback:opened', snap);
+      requestAnimationFrame(() => {
+        if (!nameInput.value) {
+          nameInput.focus();
+        } else {
+          text.focus();
+        }
+      });
+    } finally {
+      opening = false;
+    }
+  }
+
+  function close(): void {
+    if (!isOpen()) {
+      return;
+    }
+    modal.hidden = true;
+    status.textContent = '';
+    bus.emit('feedback:closed', null);
+  }
+
+  function onDocKey(event: KeyboardEvent): void {
+    if (event.key === 'Escape' && isOpen()) {
+      event.preventDefault();
+      close();
+    }
+  }
+
+  async function send(): Promise<void> {
+    const draft = validateFeedbackDraft({
+      message: text.value,
+      name: nameInput.value,
+      featureIdea: ideaCheck.checked,
+    });
+    if (!draft.ok) {
+      status.textContent = draft.error ?? 'Invalid';
+      if (draft.error?.includes('name')) {
+        nameInput.focus();
+      }
+      return;
+    }
+
+    const name = nameInput.value.trim().slice(0, 32);
+    storePlayerName(name);
+
+    const payload = buildFeedbackPayload({
+      message: text.value,
+      name,
+      featureIdea: ideaCheck.checked,
+      snapshot: snapshot ?? (await collectSnapshot(bus)),
+      screenshot,
+      href: typeof location !== 'undefined' ? location.href : '',
+      ua: typeof navigator !== 'undefined' ? navigator.userAgent : '',
+    });
+
+    status.textContent = 'Sending…';
+    const result = await submitFeedback(payload);
+    bus.emit('feedback:submitted', result);
+    if (result.ok) {
+      status.textContent =
+        result.via === 'api'
+          ? name
+            ? `Sent — thanks, ${name}!`
+            : 'Sent — thanks!'
+          : 'Saved on this device (offline)';
+      text.value = '';
+      ideaCheck.checked = false;
+      setTimeout(close, 1400);
+    } else {
+      status.textContent = 'Could not send — try again';
+    }
+  }
+
+  wrap.querySelector('[data-fb-open]')?.addEventListener('click', (event) => {
+    event.stopPropagation();
+    void open();
+  });
+  wrap.querySelector('[data-fb-close]')?.addEventListener('click', () => close());
+  wrap.querySelector('[data-fb-send]')?.addEventListener('click', () => {
+    void send();
+  });
+  modal.addEventListener('click', (event) => {
+    if (event.target === modal) {
+      close();
+    }
+  });
+  text.addEventListener('keydown', (event) => {
+    if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+      event.preventDefault();
+      void send();
+    }
+  });
+  document.addEventListener('keydown', onDocKey);
+
+  const offOpen = bus.on('feedback:open', () => {
+    void open();
+  });
+  const offClose = bus.on('feedback:close', () => close());
+
   return {
-    open() {},
+    open() {
+      void open();
+    },
+    close,
+    destroy() {
+      offOpen();
+      offClose();
+      document.removeEventListener('keydown', onDocKey);
+      wrap.remove();
+    },
+    get isOpen() {
+      return isOpen();
+    },
   };
 }
