@@ -20,6 +20,7 @@ import {
   type LockState,
   type LockTarget,
 } from '../combat/lock';
+import { createBag, type Bag } from '../bike/bag';
 import { createMelee, stepMelee, trySwing, type MeleeState } from '../combat/melee';
 import type { Intent } from '../input/intents';
 import {
@@ -48,6 +49,11 @@ export type Rider = {
   lock: LockState;
   mountedBikeId: number | null;
   lastBikeId: number | null;
+  hp: number;
+  maxHp: number;
+  hurtT: number;
+  bag: Bag;
+  throwCool: number;
   prevMelee: boolean;
   prevHop: boolean;
   prevLock: boolean;
@@ -55,6 +61,8 @@ export type Rider = {
   prevRepair: boolean;
   prevAssistUp: boolean;
   prevAssistDown: boolean;
+  prevFire: boolean;
+  prevUse: boolean;
 };
 
 export type RiderSpawn = {
@@ -67,6 +75,7 @@ export type RiderSpawn = {
   withBike?: boolean;
   /** Optional pack fill 0..1 for tests / seeded bikes. */
   charge?: number;
+  bag?: Partial<Bag>;
 };
 
 export function createRider(
@@ -106,6 +115,11 @@ export function createRider(
     lock: createLock(),
     mountedBikeId: spawn.withBike === false ? null : spawn.id,
     lastBikeId: spawn.withBike === false ? null : spawn.id,
+    hp: 3,
+    maxHp: 3,
+    hurtT: 0,
+    bag: createBag(spawn.bag),
+    throwCool: 0,
     prevMelee: false,
     prevHop: false,
     prevLock: false,
@@ -113,6 +127,8 @@ export function createRider(
     prevRepair: false,
     prevAssistUp: false,
     prevAssistDown: false,
+    prevFire: false,
+    prevUse: false,
   };
 }
 
@@ -170,6 +186,8 @@ export function stepRiderMotion(
     impactFlashT: Math.max(0, rider.impactFlashT - dt),
     ramShakeT: Math.max(0, rider.ramShakeT - dt),
     ramLinesT: Math.max(0, rider.ramLinesT - dt),
+    throwCool: Math.max(0, rider.throwCool - dt),
+    hurtT: Math.max(0, rider.hurtT - dt),
   };
 }
 
@@ -242,7 +260,7 @@ export function stepRiderCamera(
   };
 }
 
-export function withImpact(rider: Rider, kind: 'melee' | 'ram'): Rider {
+export function withImpact(rider: Rider, kind: 'melee' | 'ram' | 'throw'): Rider {
   if (kind === 'ram') {
     return {
       ...rider,

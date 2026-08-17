@@ -34,7 +34,7 @@ const PRE: FlipSkin = {
   nightAmt: 0,
 };
 
-const POST: FlipSkin = {
+const POST_NIGHT: FlipSkin = {
   sky: 0x2a1c38,
   fog: 0x4a3050,
   fogNear: 50,
@@ -48,6 +48,23 @@ const POST: FlipSkin = {
   nightAmt: 1,
 };
 
+/** Hazy campy afternoon after the flip — not the pre-flip blue. */
+const POST_DAY: FlipSkin = {
+  sky: 0xd8b07a,
+  fog: 0xc9a070,
+  fogNear: 110,
+  fogFar: 860,
+  hemiSky: 0xffe2b8,
+  hemiGround: 0x7a4a38,
+  hemiInt: 0.72,
+  sun: 0xffc078,
+  sunInt: 0.85,
+  moonInt: 0.05,
+  nightAmt: 0,
+};
+
+const POST = POST_NIGHT;
+
 export function flipSkin(state: FlipState): FlipSkin {
   if (state.phase === 'pre') {
     return PRE;
@@ -56,6 +73,13 @@ export function flipSkin(state: FlipState): FlipSkin {
     return POST;
   }
   return lerpSkin(PRE, POST, ease(state.progress));
+}
+
+export function playSkin(state: FlipState, nightAmt = 1): FlipSkin {
+  if (state.phase !== 'post') {
+    return flipSkin(state);
+  }
+  return lerpSkin(POST_DAY, POST_NIGHT, Math.max(0, Math.min(1, nightAmt)));
 }
 
 export function lerpSkin(a: FlipSkin, b: FlipSkin, t: number): FlipSkin {

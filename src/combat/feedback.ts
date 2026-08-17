@@ -24,7 +24,11 @@ export type HitImpulse = {
   squashT: number;
 };
 
-export function hitImpulse(from: XZ, to: XZ, kind: 'melee' | 'ram'): HitImpulse {
+export function hitImpulse(
+  from: XZ,
+  to: XZ,
+  kind: 'melee' | 'ram' | 'throw',
+): HitImpulse {
   let dx = to.x - from.x;
   let dz = to.z - from.z;
   const len = Math.hypot(dx, dz);

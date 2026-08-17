@@ -18,6 +18,7 @@ export type Intent = {
   repair: boolean;
   assistUp: boolean;
   assistDown: boolean;
+  use: boolean;
 };
 
 export function idleIntent(): Intent {
@@ -35,6 +36,7 @@ export function idleIntent(): Intent {
     repair: false,
     assistUp: false,
     assistDown: false,
+    use: false,
   };
 }
 

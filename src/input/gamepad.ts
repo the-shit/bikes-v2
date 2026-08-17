@@ -26,6 +26,8 @@ export const GAMEPAD = {
   mount: 1,
   melee: 2,
   lock: 3,
+  use: 4,
+  fire: 5,
 } as const;
 
 export function applyDeadzone(value: number, zone = GAMEPAD.deadzone): number {
@@ -53,6 +55,8 @@ export function intentFromPad(pad: PadSnapshot): Intent {
     mount: pressed(pad, GAMEPAD.mount),
     melee: pressed(pad, GAMEPAD.melee),
     lock: pressed(pad, GAMEPAD.lock),
+    use: pressed(pad, GAMEPAD.use),
+    fire: pressed(pad, GAMEPAD.fire),
   };
 }
 

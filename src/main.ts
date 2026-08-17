@@ -21,7 +21,7 @@ import { createHud } from './ui/hud';
 import { bindFeedbackSnapshot } from './ui/snapshot';
 import { loadMesaBake } from './world/osm';
 import { buildMesaPlay } from './world/mesa';
-import { flipSkin } from './world/skin';
+import { playSkin } from './world/skin';
 import { createStory } from './world/story';
 import { createWorldView } from './world/view';
 
@@ -67,6 +67,7 @@ export async function createApp(
     hazards: play.hazards,
     chargePoints: play.chargePoints,
     ramps: play.ramps,
+    spots: play.spots,
     story: createStory({ tutorial: true }),
   });
   const view = createWorldView(play);
@@ -155,7 +156,7 @@ export async function createApp(
       tick,
       render() {
         const snap = session.snapshot();
-        const skin = flipSkin(snap.story.flip);
+        const skin = playSkin(snap.story.flip, snap.sky.nightAmt);
         scene.background = new THREE.Color(skin.sky);
         scene.fog = new THREE.Fog(skin.fog, skin.fogNear, skin.fogFar);
         renderer.setClearColor(skin.sky, 1);

@@ -255,4 +255,40 @@ describe('session bike systems', () => {
     expect(snap.story.flip.phase).toBe('post');
     expect(snap.zombies).toHaveLength(1);
   });
+
+  it('scavenges on foot and tosses a rock', () => {
+    const session = createSession({
+      riders: [{ id: 1, x: 0, z: 0, yaw: 0, withBike: false, bag: { rocks: 2 } }],
+      terrain: createTerrain(),
+      cameraFrame: { x: 0, z: 0, faceYaw: 0 },
+      blockers: HOME_CAMERA_BLOCKERS_LOCAL,
+      shamblerPins: [{ x: 0, z: 4 }],
+      spots: [
+        { id: 'loot-0', kind: 'loot', x: 0, z: 0, yaw: 0, label: 'Porch' },
+      ],
+    });
+    session.tick(DT, { 1: { ...idleIntent(), use: true } });
+    expect(session.snapshot().houses[0].looted).toBe(true);
+    expect(session.snapshot().riders[0].bag.rocks).toBeGreaterThan(2);
+    session.tick(DT, { 1: { ...idleIntent(), fire: true } });
+    expect(session.snapshot().shots.length).toBeGreaterThan(0);
+    expect(session.snapshot().riders[0].bag.rocks).toBeGreaterThan(0);
+  });
+
+  it('bolts a bigger pack at the garage', () => {
+    const session = createSession({
+      riders: [
+        { id: 1, x: 0, z: 0, yaw: 0, bag: { cells: 3 } },
+      ],
+      terrain: createTerrain(),
+      cameraFrame: { x: 0, z: 0, faceYaw: 0 },
+      blockers: HOME_CAMERA_BLOCKERS_LOCAL,
+      shamblerPins: [],
+      chargePoints: [garageChargePoint({ x: 0, z: 0 })],
+    });
+    session.tick(DT, { 1: { ...idleIntent(), use: true } });
+    const snap = session.snapshot();
+    expect(snap.bikes[0].upgrades.equipped).toContain('battery');
+    expect(snap.riders[0].bag.cells).toBe(0);
+  });
 });
