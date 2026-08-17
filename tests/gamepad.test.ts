@@ -31,6 +31,18 @@ describe('gamepad adapter', () => {
     expect(intent.brake).toBeCloseTo(0.4);
   });
 
+  it('maps LB to use and RB to fire', () => {
+    const buttons = pad().buttons.slice();
+    const next = [...buttons];
+    next[GAMEPAD.use] = { pressed: true, value: 1 };
+    next[GAMEPAD.fire] = { pressed: true, value: 1 };
+    const intent = intentFromPad(pad({ buttons: next }));
+    expect(intent.use).toBe(true);
+    expect(intent.fire).toBe(true);
+    expect(intentFromPad(pad()).use).toBe(false);
+    expect(intentFromPad(pad()).fire).toBe(false);
+  });
+
   it('samples the first live pad via injected read (no window)', () => {
     const buttons = pad().buttons.slice();
     const live = [...buttons];

@@ -6,11 +6,9 @@
 import { createBattery } from '../bike/battery';
 import { createWorldBike, type WorldBike } from '../bike/mount';
 import type { Hazard } from '../bike/tires';
-import { applyDamage, isDead } from '../combat/damage';
-import { FEEDBACK, hitImpulse } from '../combat/feedback';
 import { lockSteerAssist } from '../combat/lock';
 import { isMeleeActive, markStruck, meleeHits, MELEE } from '../combat/melee';
-import { RAM, ramDamage, ramHits } from '../combat/ram';
+import { ramDamage, ramHits } from '../combat/ram';
 import { throwDamage } from '../combat/throwables';
 import { idleIntent, type Intent } from '../input/intents';
 import type { CameraFrame } from '../world/camera';
@@ -26,9 +24,10 @@ import {
   type WorldStory,
 } from '../world/story';
 import type { Terrain } from '../world/terrain';
-import { stepZombieAi, type Shambler } from '../zombies/ai';
+import { stepZombieAi } from '../zombies/ai';
 import { seedShamblers } from '../zombies/spawn';
 import { createBus, type EventBus } from './events';
+import { applyHurt } from './hits';
 import { stepRideWorld } from './rideTick';
 import {
   createRider,
@@ -36,18 +35,11 @@ import {
   holdRiderLock,
   stepRiderCamera,
   stepRiderLock,
-  withImpact,
   withToast,
-  type Rider,
   type RiderId,
   type RiderSpawn,
 } from './rider';
-import {
-  toSnapshot,
-  type AudioCue,
-  type HitEvent,
-  type SessionSnapshot,
-} from './snap';
+import { toSnapshot, type AudioCue, type SessionSnapshot } from './snap';
 import { createSurvive, ramMul, stepSurvive } from './survive';
 
 export type { AudioCue, HitEvent, RiderSnapshot, SessionSnapshot } from './snap';
@@ -58,13 +50,6 @@ export type Session = {
   snapshot(): SessionSnapshot;
   beginFlip(): void;
 };
-
-const HIT_TOAST = {
-  meleeKill: 'BONK!',
-  ramKill: 'RAM!',
-  melee: 'boing',
-  ram: 'whoosh',
-} as const;
 
 export function createSession(opts: {
   riders: RiderSpawn[];
@@ -122,54 +107,19 @@ export function createSession(opts: {
     riderId: RiderId,
     id: number,
     amount: number,
-    kind: HitEvent['kind'],
+    kind: 'melee' | 'ram' | 'throw',
   ): void {
-    zombies = zombies.map((z) => {
-      if (z.id !== id || z.dead) {
-        return z;
-      }
-      const nextHp = applyDamage({ hp: z.hp, max: z.maxHp }, amount);
-      const dead = isDead(nextHp);
-      riders = riders.map((r) => {
-        if (r.id !== riderId) {
-          return r;
-        }
-        const toast =
-          kind === 'ram'
-            ? dead
-              ? HIT_TOAST.ramKill
-              : HIT_TOAST.ram
-            : dead
-              ? HIT_TOAST.meleeKill
-              : HIT_TOAST.melee;
-        const toasted = withImpact(withToast(r, toast), kind);
-        return dead ? { ...toasted, kills: r.kills + 1 } : toasted;
-      });
-      bus.emit<HitEvent>('combat.hit', {
-        riderId,
-        id,
-        kind,
-        damage: amount,
-        killed: dead,
-      });
-      hitstopT = FEEDBACK.hitstop;
-      const rider = riders.find((r) => r.id === riderId);
-      const impulse = hitImpulse(
-        { x: rider?.bike.x ?? z.x, z: rider?.bike.z ?? z.z },
-        { x: z.x, z: z.z },
-        kind,
-      );
-      return {
-        ...z,
-        hp: nextHp.hp,
-        dead,
-        hitCd: kind === 'ram' ? RAM.cooldown : z.hitCd,
-        vx: impulse.vx,
-        vz: impulse.vz,
-        flashT: impulse.flashT,
-        squashT: impulse.squashT,
-      };
-    });
+    const next = applyHurt(
+      { riders, zombies, hitstopT },
+      bus,
+      riderId,
+      id,
+      amount,
+      kind,
+    );
+    riders = next.riders;
+    zombies = next.zombies;
+    hitstopT = next.hitstopT;
   }
 
   return {

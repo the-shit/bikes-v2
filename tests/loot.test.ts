@@ -29,4 +29,19 @@ describe('loot houses', () => {
     expect(rollLoot('loot-0')).toEqual(rollLoot('loot-0'));
     expect(rollLoot('loot-1')).not.toEqual(rollLoot('loot-0'));
   });
+
+  it('does not mark the house looted when the bag cannot take the drop', () => {
+    const house = housesFromSpots(spots)[0];
+    const stuffed = createBag({
+      cells: 2,
+      plates: 2,
+      rocks: 2,
+      balloons: 2,
+    });
+    expect(bagTotal(stuffed)).toBe(8);
+    const full = scavenge(house, stuffed, 8);
+    expect(full.house.looted).toBe(false);
+    expect(full.bag).toEqual(stuffed);
+    expect(full.toast).toMatch(/Pockets full/);
+  });
 });

@@ -59,8 +59,12 @@ export function scavenge(
     return { house, bag, toast: 'Picked clean' };
   }
   const drop = rollLoot(house.id);
-  const next = addToBag(bag, drop, cap);
-  const got = summarize(drop);
+  const { bag: next, taken } = addToBag(bag, drop, cap);
+  const got = summarize(taken);
+  const rolled = summarize(drop);
+  if (!got && rolled) {
+    return { house, bag, toast: 'Pockets full' };
+  }
   return {
     house: { ...house, looted: true },
     bag: next,

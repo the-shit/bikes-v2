@@ -47,17 +47,25 @@ export function bagCap(racked: boolean): number {
   return BAG.cap + (racked ? BAG.rackBonus : 0);
 }
 
-export function addToBag(bag: Bag, add: Partial<Bag>, cap: number): Bag {
+export function addToBag(
+  bag: Bag,
+  add: Partial<Bag>,
+  cap: number,
+): { bag: Bag; taken: Partial<Bag> } {
   const next = { ...bag };
+  const taken: Partial<Bag> = {};
   const keys = Object.keys(add) as (keyof Bag)[];
   let room = Math.max(0, cap - bagTotal(next));
   for (const key of keys) {
     const want = Math.max(0, Math.floor(add[key] ?? 0));
     const take = Math.min(want, room);
-    next[key] += take;
-    room -= take;
+    if (take > 0) {
+      next[key] += take;
+      taken[key] = take;
+      room -= take;
+    }
   }
-  return next;
+  return { bag: next, taken };
 }
 
 export function takeFromBag(bag: Bag, cost: Partial<Bag>): Bag | null {
