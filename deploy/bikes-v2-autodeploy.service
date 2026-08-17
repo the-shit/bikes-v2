@@ -1,0 +1,14 @@
+[Unit]
+Description=Bikes v2 auto-deploy (pull main, vite build, rsync live dist)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/Sites/bikes-v2-src
+Environment=PATH=/usr/bin:/bin
+Environment=BIKES_V2_SRC=%h/Sites/bikes-v2-src
+Environment=LIVE_ROOT=%h/Sites/bikes-v2
+Environment=STATE_FILE=%h/.local/state/bikes-v2-deploy/last-sha
+Environment=LOCK_FILE=%h/.local/state/bikes-v2-deploy/lock
+ExecStart=%h/.local/bin/bikes-v2-auto-deploy.sh

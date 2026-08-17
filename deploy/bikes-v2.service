@@ -1,0 +1,16 @@
+[Unit]
+Description=Bikes v2 static site (bikes-v2.jordanpartridge.us)
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/Sites/bikes-v2
+Environment=BIKES_V2_PORT=8311
+Environment=BIKES_V2_HOST=127.0.0.1
+Environment=BIKES_V2_ROOT=%h/Sites/bikes-v2/dist
+ExecStart=/usr/bin/node %h/Sites/bikes-v2/deploy/server.mjs
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=default.target
