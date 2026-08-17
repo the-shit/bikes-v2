@@ -1,5 +1,9 @@
 name: quality
 
+# Test gate: `npm run quality` runs tsc + Vitest + build.
+# Required-status merge-block is convention only — GitHub Free cannot
+# require checks on this private repo.
+
 on:
   pull_request:
   push:

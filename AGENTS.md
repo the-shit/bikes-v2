@@ -6,7 +6,7 @@ Source of truth: Solo scratchpad `bikes-v2-master-plan` (project 21). v1 at `~/S
 
 - TypeScript + Three.js + Vite. Pure sim in `src/core/*` (no WebGL in tests).
 - Input is intents, not keys. Adapters live in `src/input/`.
-- Ship gate: `npm run quality`.
+- Ship gate: `npm run quality` (`tsc --noEmit` + Vitest + build). CI runs it on every PR.
 
 ## Boundaries
 
