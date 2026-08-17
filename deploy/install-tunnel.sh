@@ -50,8 +50,16 @@ print(f"Added {hostname} → {origin}")
 PY
 fi
 
-if command -v cloudflared >/dev/null 2>&1; then
-    cloudflared tunnel route dns -f "$TUNNEL_ID" "$HOSTNAME"
+CF="${CLOUDFLARED_BIN:-}"
+if [ -z "$CF" ]; then
+    if [ -x "${HOME}/.local/bin/cloudflared" ]; then
+        CF="${HOME}/.local/bin/cloudflared"
+    elif command -v cloudflared >/dev/null 2>&1; then
+        CF="$(command -v cloudflared)"
+    fi
+fi
+if [ -n "$CF" ]; then
+    "$CF" tunnel route dns -f "$TUNNEL_ID" "$HOSTNAME"
     echo "DNS route requested for $HOSTNAME"
 else
     echo "WARN: cloudflared not on PATH; add DNS route by hand" >&2

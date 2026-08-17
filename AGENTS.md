@@ -4,7 +4,7 @@ Source of truth: Solo scratchpad `bikes-v2-master-plan` (project 21). v1 at `~/S
 
 ## Stack
 
-- Three.js + Vite. Pure sim in `src/core/*` (no WebGL in tests).
+- TypeScript + Three.js + Vite. Pure sim in `src/core/*` (no WebGL in tests).
 - Input is intents, not keys. Adapters live in `src/input/`.
 - Ship gate: `npm run quality`.
 
