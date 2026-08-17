@@ -27,6 +27,7 @@ die() {
 
 [ -d "$BIKES_V2_SRC/.git" ] || die "not a git checkout: $BIKES_V2_SRC"
 command -v git >/dev/null 2>&1 || die "missing required command: git"
+NODE_BIN="${NODE_BIN:-/usr/bin/node}"
 
 mkdir -p "$(dirname "$STATE_FILE")" "$(dirname "$LOCK_FILE")"
 
@@ -35,6 +36,17 @@ git fetch origin "$BRANCH" --quiet
 NEW_SHA=$(git rev-parse "origin/${BRANCH}")
 LAST_SHA=$(cat "$STATE_FILE" 2>/dev/null || echo none)
 
+INTAKE="$BIKES_V2_SRC/deploy/mmIntake.mjs"
+if [ -x "$NODE_BIN" ] && [ -f "$INTAKE" ]; then
+    set +e
+    "$NODE_BIN" "$INTAKE"
+    intake_status=$?
+    set -e
+    if [ "$intake_status" -ne 0 ]; then
+        log "mm intake failed (exit $intake_status)"
+    fi
+fi
+
 if [ "$NEW_SHA" = "$LAST_SHA" ]; then
     exit 0
 fi
@@ -42,6 +54,7 @@ fi
 [ -x "$ODIN_SH" ] || die "odin.sh not executable: $ODIN_SH"
 
 log "Deploying ${LAST_SHA:0:7} → ${NEW_SHA:0:7}"
+export BIKES_V2_DEPLOY_FROM="$LAST_SHA"
 
 if command -v flock >/dev/null 2>&1; then
     set +e

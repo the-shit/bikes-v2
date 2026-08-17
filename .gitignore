@@ -10,4 +10,7 @@ coverage/
 .vscode/
 *.local
 tmp/
+*.blend1
 *.tsbuildinfo
+feedback.jsonl
+feedback/

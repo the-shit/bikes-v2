@@ -37,6 +37,9 @@ git fetch origin "$BRANCH"
 git checkout --quiet "$BRANCH" 2>/dev/null || git checkout --quiet -B "$BRANCH" "origin/${BRANCH}"
 git reset --hard "origin/${BRANCH}" --quiet
 COMMIT=$(git rev-parse --short HEAD)
+export VITE_GIT_SHA="$COMMIT"
+# Asgard swap is config-only: set VITE_FEEDBACK_URL to the intake URL when it exists.
+# Default (unset) is same-origin POST /api/feedback on this box.
 log "Building $COMMIT ($(git log -1 --pretty=format:'%s')) with $($NODE_BIN -v)"
 
 "$NPM_BIN" ci --no-audit --no-fund
@@ -48,17 +51,44 @@ mkdir -p "$LIVE_DIST"
 log "Rsync dist/ → $LIVE_DIST"
 rsync -a --delete "$BIKES_V2_SRC/dist/" "$LIVE_DIST/"
 
-LIVE_SERVER="$LIVE_ROOT/deploy/server.mjs"
-SRC_SERVER="$BIKES_V2_SRC/deploy/server.mjs"
-if [ -f "$SRC_SERVER" ]; then
-    mkdir -p "$(dirname "$LIVE_SERVER")"
-    if [ ! -f "$LIVE_SERVER" ] || ! cmp -s "$SRC_SERVER" "$LIVE_SERVER"; then
-        log "Updating deploy/server.mjs and restarting bikes-v2.service"
-        cp "$SRC_SERVER" "$LIVE_SERVER"
-        if command -v systemctl >/dev/null 2>&1; then
-            export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
-            systemctl --user restart bikes-v2.service
-        fi
+LIVE_DEPLOY="$LIVE_ROOT/deploy"
+SRC_DEPLOY="$BIKES_V2_SRC/deploy"
+deploy_changed=0
+mkdir -p "$LIVE_DEPLOY"
+for src in "$SRC_DEPLOY"/*.mjs; do
+    [ -f "$src" ] || continue
+    base="$(basename "$src")"
+    dest="$LIVE_DEPLOY/$base"
+    if [ ! -f "$dest" ] || ! cmp -s "$src" "$dest"; then
+        cp "$src" "$dest"
+        deploy_changed=1
+    fi
+done
+if [ "$deploy_changed" -eq 1 ]; then
+    log "Updating deploy/*.mjs and restarting bikes-v2.service"
+    if command -v systemctl >/dev/null 2>&1; then
+        export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+        systemctl --user restart bikes-v2.service
+    fi
+fi
+
+BIN_AUTO="${HOME}/.local/bin/bikes-v2-auto-deploy.sh"
+if [ -x "$SRC_DEPLOY/auto-deploy.sh" ]; then
+    mkdir -p "$(dirname "$BIN_AUTO")"
+    if [ ! -f "$BIN_AUTO" ] || ! cmp -s "$SRC_DEPLOY/auto-deploy.sh" "$BIN_AUTO"; then
+        install -m 755 "$SRC_DEPLOY/auto-deploy.sh" "$BIN_AUTO"
+        log "Updated $BIN_AUTO"
+    fi
+fi
+
+CARD="$SRC_DEPLOY/deployCard.mjs"
+if [ -x "$NODE_BIN" ] && [ -f "$CARD" ]; then
+    set +e
+    "$NODE_BIN" "$CARD" --from "${BIKES_V2_DEPLOY_FROM:-none}" --to "$(git rev-parse HEAD)" --repo "$BIKES_V2_SRC"
+    card_status=$?
+    set -e
+    if [ "$card_status" -ne 0 ]; then
+        log "deploy card failed (exit $card_status)"
     fi
 fi
 

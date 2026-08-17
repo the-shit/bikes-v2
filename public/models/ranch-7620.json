@@ -1,0 +1,16 @@
+{
+  "id": "ranch-7620",
+  "pin": "7620 E Jan Ave, Mesa, AZ 85209",
+  "zpid": 8075144,
+  "yearBuilt": 1971,
+  "beds": 3,
+  "baths": 2,
+  "sqft": 1511,
+  "lotSqft": 7187,
+  "exterior": "wood clapboard",
+  "parking": "2-car carport",
+  "fencing": "block",
+  "url": "/models/ranch-7620.glb",
+  "source": "tools/models/ranch_7620.py",
+  "issue": 4
+}
