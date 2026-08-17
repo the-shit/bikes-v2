@@ -22,6 +22,12 @@ Source of truth: Solo scratchpad `bikes-v2-master-plan` (project 21). v1 at `~/S
 
 Budget: no file over ~300 lines. Systems talk via events/state, not each other's internals.
 
+## Art
+
+- **Heroes** (7620, later Circle K): `tools/models/*.py` → `public/models/`. Asset issues are labeled `asset`.
+- **Fill streets:** instanced later. Do not clone the 7620 GLB.
+- v1 meshes are donors. Rebuild against the real pin + photos.
+
 ## Do not
 
 - Re-interview Jordan. Escalate taste questions on your Solo todo.

@@ -7,6 +7,7 @@
 import * as THREE from 'three';
 import type { SessionSnapshot } from '../core/session';
 import { roadWidth, sampleElevGrid } from './geo';
+import { placeHeroes } from './heroes';
 import {
   attachRiderFx,
   attachZombieFx,
@@ -42,7 +43,18 @@ export function createWorldView(slice: JanSlice): WorldView {
 
   group.add(buildGround(slice));
   group.add(buildRoads(slice));
-  group.add(buildHome(slice));
+  const homePrim = buildHome(slice);
+  group.add(homePrim);
+  void placeHeroes(group, {
+    x: slice.home.x,
+    z: slice.home.z,
+    y: slice.terrain.sampleHeight(slice.home.x, slice.home.z),
+    yaw: slice.home.faceYaw,
+  }).then((ranch) => {
+    if (ranch) {
+      homePrim.visible = false;
+    }
+  });
   for (const lot of slice.lots) {
     group.add(buildRanch(lot.x, lot.z, lot.yaw, slice.terrain.sampleHeight));
     group.add(buildPalm(lot.palm.x, lot.palm.z, slice.terrain.sampleHeight));

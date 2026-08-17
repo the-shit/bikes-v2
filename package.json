@@ -15,7 +15,8 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "quality": "tsc --noEmit && vitest run && vite build",
-    "map:mesa": "node scripts/fetch-mesa-map.mjs"
+    "map:mesa": "node scripts/fetch-mesa-map.mjs",
+    "model:ranch": "blender --background --python tools/models/ranch_7620.py"
   },
   "repository": {
     "type": "git",
