@@ -11,6 +11,8 @@ coverage/
 *.local
 tmp/
 *.blend1
+__pycache__/
+*.pyc
 *.tsbuildinfo
 feedback.jsonl
 feedback/
