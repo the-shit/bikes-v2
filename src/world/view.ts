@@ -8,6 +8,7 @@ import * as THREE from 'three';
 import type { SessionSnapshot } from '../core/session';
 import { roadWidth, sampleElevGrid } from './geo';
 import { placeHeroes } from './heroes';
+import { loadKitRig } from './kit';
 import {
   attachLockFx,
   attachRiderFx,
@@ -66,6 +67,22 @@ export function createWorldView(slice: JanSlice): WorldView {
   const zomMeshes = new Map<number, THREE.Group>();
   const lockMeshes = new Map<number, THREE.Group>();
   let fxClock = 0;
+  let kitProto: THREE.Group | null = null;
+  void loadKitRig().then((rig) => {
+    if (!rig) {
+      return;
+    }
+    kitProto = rig;
+    for (const [id, old] of bikeMeshes) {
+      const next = rig.clone(true);
+      attachRiderFx(next);
+      next.position.copy(old.position);
+      next.rotation.copy(old.rotation);
+      group.remove(old);
+      group.add(next);
+      bikeMeshes.set(id, next);
+    }
+  });
 
   return {
     group,
@@ -81,7 +98,7 @@ export function createWorldView(slice: JanSlice): WorldView {
       for (const rider of snap.riders) {
         let mesh = bikeMeshes.get(rider.id);
         if (!mesh) {
-          mesh = buildBike();
+          mesh = kitProto ? kitProto.clone(true) : buildBike();
           attachRiderFx(mesh);
           bikeMeshes.set(rider.id, mesh);
           group.add(mesh);

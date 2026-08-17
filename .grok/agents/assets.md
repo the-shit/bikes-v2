@@ -22,6 +22,7 @@ Read `AGENTS.md` first. Then the open GitHub issue tagged `asset`.
 
 - Issue labeled `asset`
 - Hero buildings, textures, palms, Circle K, 7620 ranch
+- Bike / rider kit (`tools/models/kit/`)
 - `/assets`
 
 ## Queue
@@ -35,6 +36,7 @@ Take **one** issue. Branch `feat/asset-<slug>`. PR. Do not push `main`.
 ## Art law
 
 - **Heroes** (7620, Circle K, named lots): `tools/models/*.py` → `public/models/<slug>.glb` + `<slug>.json`. Blender skill, CPU Cycles preview.
+- **Rider:** Jordan caricature from `tools/models/rider/refs/`. Beard + glasses silhouette, heather tee, khaki shorts, flip-flops. No helmets. Not photoreal.
 - **Fill** (later streets): instanced / shared mesh. Never clone the 7620 GLB.
 - **Ground / roads:** bake + materials, not a 5 km dome.
 - Match the real pin (photo + parcel facts) before inventing massing.
