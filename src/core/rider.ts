@@ -5,6 +5,8 @@
  */
 
 import { createAirState, stepAir, type AirState } from '../bike/air';
+import type { RideFeel } from '../bike/feel';
+import { stepFoot } from '../bike/foot';
 import {
   createBikeState,
   stepBike,
@@ -44,9 +46,15 @@ export type Rider = {
   ramShakeT: number;
   ramLinesT: number;
   lock: LockState;
+  mountedBikeId: number | null;
+  lastBikeId: number | null;
   prevMelee: boolean;
   prevHop: boolean;
   prevLock: boolean;
+  prevMount: boolean;
+  prevRepair: boolean;
+  prevAssistUp: boolean;
+  prevAssistDown: boolean;
 };
 
 export type RiderSpawn = {
@@ -55,6 +63,10 @@ export type RiderSpawn = {
   z: number;
   yaw: number;
   speed?: number;
+  /** Default true. False = start on foot (no saddle). */
+  withBike?: boolean;
+  /** Optional pack fill 0..1 for tests / seeded bikes. */
+  charge?: number;
 };
 
 export function createRider(
@@ -92,47 +104,67 @@ export function createRider(
     ramShakeT: 0,
     ramLinesT: 0,
     lock: createLock(),
+    mountedBikeId: spawn.withBike === false ? null : spawn.id,
+    lastBikeId: spawn.withBike === false ? null : spawn.id,
     prevMelee: false,
     prevHop: false,
     prevLock: false,
+    prevMount: false,
+    prevRepair: false,
+    prevAssistUp: false,
+    prevAssistDown: false,
   };
 }
+
+export type MotionOpts = {
+  feel?: RideFeel;
+  onFoot?: boolean;
+};
 
 export function stepRiderMotion(
   rider: Rider,
   intent: Intent,
   dt: number,
   heightAt: (x: number, z: number) => number,
+  opts: MotionOpts = {},
 ): Rider {
-  const hopEdge = intent.hop && !rider.prevHop;
+  const hopEdge = intent.hop && !rider.prevHop && !opts.onFoot;
   const meleeEdge = intent.melee && !rider.prevMelee;
-  const grade = rider.air.airborne ? undefined : { sampleHeight: heightAt };
-  let bike = stepBike(
-    rider.bike,
-    {
-      throttle: intent.throttle,
-      brake: intent.brake,
-      steer: intent.steer,
-    },
-    dt,
-    grade,
-  );
-  const airStep = stepAir(
-    rider.air,
-    bike,
-    heightAt(bike.x, bike.z),
-    dt,
-    hopEdge,
-  );
-  bike = { ...bike, y: airStep.y, speed: airStep.speed };
+  const input = {
+    throttle: intent.throttle,
+    brake: intent.brake,
+    steer: intent.steer,
+  };
+  let bike: BikeState;
+  let air = rider.air;
+  if (opts.onFoot) {
+    bike = stepFoot(rider.bike, input, dt, heightAt);
+    air = createAirState();
+  } else {
+    const grade = rider.air.airborne ? undefined : { sampleHeight: heightAt };
+    bike = stepBike(rider.bike, input, dt, grade, opts.feel);
+    const airStep = stepAir(
+      rider.air,
+      bike,
+      heightAt(bike.x, bike.z),
+      dt,
+      hopEdge,
+    );
+    bike = { ...bike, y: airStep.y, speed: airStep.speed };
+    air = airStep.air;
+  }
   return {
     ...rider,
     bike,
-    air: airStep.air,
+    air,
     melee: stepMelee(trySwing(rider.melee, meleeEdge), dt),
     prevHop: intent.hop,
     prevMelee: intent.melee,
     prevLock: intent.lock,
+    prevMount: intent.mount,
+    prevRepair: intent.repair,
+    prevAssistUp: intent.assistUp,
+    prevAssistDown: intent.assistDown,
     toastT: Math.max(0, rider.toastT - dt),
     toast: rider.toastT - dt <= 0 ? '' : rider.toast,
     impactFlashT: Math.max(0, rider.impactFlashT - dt),

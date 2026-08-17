@@ -59,6 +59,8 @@ export async function createApp(
     cameraFrame: slice.cameraFrame,
     blockers: slice.blockers,
     shamblerPins: slice.shamblerPins,
+    hazards: slice.hazards,
+    chargePoints: slice.chargePoints,
   });
   const view = createWorldView(slice);
   view.sync(session.snapshot());
@@ -79,12 +81,16 @@ export async function createApp(
   const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 600);
   const keys = createKeyboardAdapter(window);
   const fps = createFpsHud(fpsEl);
-  const hud = createHud(hudEl);
+  const hud = createHud(hudEl, slice.chargePoints);
   const bus = createBus();
   const feedback = createFeedback(document.body, bus);
   const unsubHotkey = mountFeedbackHotkey(bus);
   const unsubSnapshot = bindFeedbackSnapshot(bus, () => {
-    const rider = session.snapshot().riders.find((r) => r.id === localRiderId);
+    const snap = session.snapshot();
+    const rider = snap.riders.find((r) => r.id === localRiderId);
+    const pack = rider
+      ? snap.bikes.find((b) => b.id === (rider.mountedBikeId ?? rider.lastBikeId))
+      : undefined;
     return {
       position: rider
         ? { x: rider.bike.x, y: rider.bike.y, z: rider.bike.z }
@@ -93,7 +99,7 @@ export async function createApp(
       street: slice.jan?.name ?? null,
       lat: null,
       lon: null,
-      pressure: null,
+      pressure: pack ? pack.tires.pressure : null,
       buildId: currentBuildId(),
       at: new Date().toISOString(),
     };

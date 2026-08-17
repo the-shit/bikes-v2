@@ -19,6 +19,9 @@ describe('intents', () => {
       hop: false,
       lock: false,
       mount: false,
+      repair: false,
+      assistUp: false,
+      assistDown: false,
     });
   });
 
@@ -47,5 +50,19 @@ describe('intents', () => {
     expect(sampleInput(state).lock).toBe(true);
     setKey(state, 'Space', true);
     expect(sampleInput(state).brake).toBe(1);
+  });
+
+  it('maps R to remount and leaves F unbound (F-Widget)', () => {
+    const state = createInputState();
+    setKey(state, 'KeyF', true);
+    expect(sampleInput(state).mount).toBe(false);
+    setKey(state, 'KeyF', false);
+    setKey(state, 'KeyR', true);
+    setKey(state, 'BracketRight', true);
+    const intent = sampleInput(state);
+    expect(intent.mount).toBe(true);
+    expect(intent.repair).toBe(false);
+    expect(intent.assistUp).toBe(true);
+    expect(intent.lock).toBe(false);
   });
 });
