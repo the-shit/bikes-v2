@@ -13,6 +13,7 @@ import {
 } from './snapshot';
 import {
   buildFeedbackPayload,
+  flushStashedFeedback,
   getStoredPlayerName,
   storePlayerName,
   submitFeedback,
@@ -79,6 +80,7 @@ export function createFeedback(
   }
 
   nameInput.value = getStoredPlayerName();
+  void flushStashedFeedback();
 
   let opening = false;
   let snapshot: RideSnapshot | null = null;
@@ -125,14 +127,10 @@ export function createFeedback(
     bus.emit('feedback:closed', null);
   }
 
-  function onDocKey(event: KeyboardEvent): void {
-    if (event.key === 'Escape' && isOpen()) {
-      event.preventDefault();
-      close();
-    }
-  }
-
   async function send(): Promise<void> {
+    if (!isOpen()) {
+      return;
+    }
     const draft = validateFeedbackDraft({
       message: text.value,
       name: nameInput.value,
@@ -140,7 +138,7 @@ export function createFeedback(
     });
     if (!draft.ok) {
       status.textContent = draft.error ?? 'Invalid';
-      if (draft.error?.includes('name')) {
+      if (draft.error?.includes('handle')) {
         nameInput.focus();
       }
       return;
@@ -190,18 +188,14 @@ export function createFeedback(
       close();
     }
   });
-  text.addEventListener('keydown', (event) => {
-    if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
-      event.preventDefault();
-      void send();
-    }
-  });
-  document.addEventListener('keydown', onDocKey);
 
   const offOpen = bus.on('feedback:open', () => {
     void open();
   });
   const offClose = bus.on('feedback:close', () => close());
+  const offSend = bus.on('feedback:send', () => {
+    void send();
+  });
 
   return {
     open() {
@@ -211,7 +205,7 @@ export function createFeedback(
     destroy() {
       offOpen();
       offClose();
-      document.removeEventListener('keydown', onDocKey);
+      offSend();
       wrap.remove();
     },
     get isOpen() {

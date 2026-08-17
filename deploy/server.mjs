@@ -9,9 +9,15 @@
  */
 import http from 'node:http';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
+import {
+  createFeedbackFarm,
+  ingestFeedback,
+  loadEnvFile,
+} from './feedbackFarm.mjs';
+import { isTypedIntent } from './feedbackFormat.mjs';
+import { createRateLimiter } from './rateLimit.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT = path.resolve(__dirname, '..');
@@ -28,50 +34,14 @@ const SCREENSHOTS_DIR =
 const PUBLIC_URL =
   process.env.BIKES_V2_PUBLIC_URL || 'https://bikes-v2.jordanpartridge.us';
 const BODY_LIMIT = 2_500_000;
-const FARM_FILES = ['feedbackFarm.mjs', 'feedbackFormat.mjs'];
 
-/** Old odin.sh only copies server.mjs — pull farm siblings from the src clone. */
-export function ensureFarmSiblings(
-  destDir = __dirname,
-  srcDir = path.join(
-    process.env.BIKES_V2_SRC || path.join(os.homedir(), 'Sites/bikes-v2-src'),
-    'deploy',
-  ),
-) {
-  const copied = [];
-  for (const name of FARM_FILES) {
-    const dest = path.join(destDir, name);
-    if (fs.existsSync(dest)) {
-      continue;
-    }
-    const src = path.join(srcDir, name);
-    if (fs.existsSync(src)) {
-      fs.copyFileSync(src, dest);
-      copied.push(name);
-    }
-  }
-  return copied;
-}
+loadEnvFile(path.join(PROJECT, '.env.mattermost'));
+loadEnvFile(path.join(PROJECT, '.env'));
+loadEnvFile(path.join(PROJECT, '..', 'bikes', '.env.mattermost'));
+loadEnvFile(path.join(PROJECT, '..', 'bikes', '.env'));
 
-let farmBundle;
-
-async function loadFarmBundle() {
-  if (farmBundle) {
-    return farmBundle;
-  }
-  ensureFarmSiblings();
-  const farmPath = path.join(__dirname, 'feedbackFarm.mjs');
-  const mod = await import(pathToFileURL(farmPath).href);
-  mod.loadEnvFile(path.join(PROJECT, '.env.mattermost'));
-  mod.loadEnvFile(path.join(PROJECT, '.env'));
-  mod.loadEnvFile(path.join(PROJECT, '..', 'bikes', '.env.mattermost'));
-  mod.loadEnvFile(path.join(PROJECT, '..', 'bikes', '.env'));
-  farmBundle = {
-    farm: mod.createFeedbackFarm(),
-    ingestFeedback: mod.ingestFeedback,
-  };
-  return farmBundle;
-}
+const defaultFarm = createFeedbackFarm();
+const defaultLimiter = createRateLimiter();
 
 const TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -151,46 +121,29 @@ function requestIp(req) {
 
 const SHOT_NAME = /^[0-9a-f-]{36}\.(jpg|jpeg|png|webp)$/i;
 
-async function resolveFarm(options) {
-  if (options.farm && options.ingestFeedback) {
-    return { farm: options.farm, ingestFeedback: options.ingestFeedback };
-  }
-  if (options.farm) {
-    const bundle = await loadFarmBundle();
-    return { farm: options.farm, ingestFeedback: bundle.ingestFeedback };
-  }
-  return loadFarmBundle();
-}
-
 export function createServer(root = ROOT, options = {}) {
   const feedbackFile = options.feedbackFile || FEEDBACK_FILE;
   const screenshotsDir = options.screenshotsDir || SCREENSHOTS_DIR;
+  const farm = options.farm || defaultFarm;
+  const ingest = options.ingestFeedback || ingestFeedback;
+  const limiter = options.rateLimiter || defaultLimiter;
 
   return http.createServer(async (req, res) => {
     const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
 
     if (req.method === 'GET' && url.pathname === '/health') {
-      send(
-        res,
-        200,
-        JSON.stringify({ ok: true, name: 'bikes-v2', root }),
-        'application/json',
-      );
+      send(res, 200, JSON.stringify({ ok: true, name: 'bikes-v2' }), 'application/json');
       return;
     }
 
     if (req.method === 'GET' && url.pathname === '/api/feedback/health') {
-      const bundle = await resolveFarm(options);
       send(
         res,
         200,
         JSON.stringify({
           ok: true,
-          file: feedbackFile,
-          screenshots: screenshotsDir,
-          mattermost: bundle.farm.enabled.mattermost,
-          github: bundle.farm.enabled.github,
-          repo: bundle.farm.enabled.repo,
+          mattermost: Boolean(farm.enabled.mattermost),
+          github: Boolean(farm.enabled.github),
         }),
         'application/json',
       );
@@ -219,16 +172,29 @@ export function createServer(root = ROOT, options = {}) {
     }
 
     if (req.method === 'POST' && url.pathname === '/api/feedback') {
+      const ip = requestIp(req);
+      if (!limiter.allow(ip)) {
+        send(res, 429, JSON.stringify({ ok: false, error: 'rate limited' }), 'application/json');
+        return;
+      }
       try {
-        const bundle = await resolveFarm(options);
         const raw = await readBody(req);
         const data = JSON.parse(raw);
-        const result = await bundle.ingestFeedback(data, {
-          ip: requestIp(req),
+        if (!isTypedIntent(data)) {
+          send(
+            res,
+            400,
+            JSON.stringify({ ok: false, error: 'typed intent required' }),
+            'application/json',
+          );
+          return;
+        }
+        const result = await ingest(data, {
+          ip,
           feedbackFile,
           screenshotsDir,
           publicUrl: options.publicUrl || requestPublicUrl(req),
-          farm: bundle.farm,
+          farm,
         });
         send(res, result.status, JSON.stringify(result.body), 'application/json');
       } catch (err) {
@@ -281,9 +247,8 @@ const isMain =
 
 if (isMain) {
   const server = createServer();
-  server.listen(PORT, HOST, async () => {
-    const { farm } = await loadFarmBundle();
-    const { mattermost, github, repo } = farm.enabled;
+  server.listen(PORT, HOST, () => {
+    const { mattermost, github, repo } = defaultFarm.enabled;
     console.log(
       `bikes-v2 http://${HOST}:${PORT}  root=${ROOT}  feedback=${FEEDBACK_FILE}  mattermost=${mattermost}  github=${github ? repo : false}`,
     );

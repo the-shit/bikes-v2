@@ -137,7 +137,7 @@ describe('screenshot + ingest', () => {
     expect(fs.readFileSync(shotFile, 'utf8')).toBe('tiny-jpeg');
   });
 
-  it('files GitHub first then Mattermost with the issue link', async () => {
+  it('writes jsonl before GitHub, then Mattermost with the issue link', async () => {
     const dir = tmpDir();
     const posts = [];
     const farm = createFeedbackFarm({
@@ -149,6 +149,7 @@ describe('screenshot + ingest', () => {
         MATTERMOST_BIKES_CHANNEL_ID: 'chan',
       },
       fetchImpl: async (url, init) => {
+        expect(init.signal).toBeDefined();
         posts.push({ url: String(url), body: JSON.parse(init.body) });
         if (String(url).includes('github.com')) {
           return {
@@ -165,7 +166,14 @@ describe('screenshot + ingest', () => {
       },
     });
     const result = await ingestFeedback(
-      { message: 'please add trees already', name: 'Sam' },
+      {
+        schema: 'bikes.v2.intent',
+        schemaVersion: 1,
+        kind: 'player_feedback',
+        id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+        text: 'please add trees already',
+        name: 'Sam',
+      },
       {
         feedbackFile: path.join(dir, 'feedback.jsonl'),
         screenshotsDir: path.join(dir, 'shots'),
@@ -220,6 +228,40 @@ describe('screenshot + ingest', () => {
     expect(line.message).toMatch(/cube/);
     expect(line.build).toBe('deadbeef');
     expect(line.position).toEqual({ x: 8, y: 6, z: 12 });
+  });
+
+  it('dedupes a repeated intent id', async () => {
+    const dir = tmpDir();
+    const file = path.join(dir, 'feedback.jsonl');
+    const farmCalls = { gh: 0 };
+    const farm = {
+      createGitHubIssue: async () => {
+        farmCalls.gh += 1;
+        return { ok: false, skipped: true };
+      },
+      postToMattermost: async () => ({ ok: false, skipped: true }),
+    };
+    const payload = {
+      schema: 'bikes.v2.intent',
+      schemaVersion: 1,
+      kind: 'player_feedback',
+      id: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
+      text: 'same note twice',
+    };
+    const first = await ingestFeedback(payload, {
+      feedbackFile: file,
+      screenshotsDir: path.join(dir, 'shots'),
+      farm,
+    });
+    const second = await ingestFeedback(payload, {
+      feedbackFile: file,
+      screenshotsDir: path.join(dir, 'shots'),
+      farm,
+    });
+    expect(first.body.duplicate).toBeUndefined();
+    expect(second.body.duplicate).toBe(true);
+    expect(farmCalls.gh).toBe(1);
+    expect(fs.readFileSync(file, 'utf8').trim().split('\n')).toHaveLength(1);
   });
 
   it('rejects a missing message', async () => {

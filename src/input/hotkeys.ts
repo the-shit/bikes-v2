@@ -1,6 +1,6 @@
 /**
  * Ownership: UI hotkeys → events. Not ride intents.
- * Talks via: EventBus (feedback:open). No gameplay imports.
+ * Talks via: EventBus (feedback:open/close/send). No gameplay imports.
  * Budget: keep this file under ~300 lines.
  */
 
@@ -23,10 +23,26 @@ export function isTypingTarget(target: TypingTarget | EventTarget | null): boole
   return Boolean(el.isContentEditable);
 }
 
-/** F opens the feedback widget. Ride adapters should ignore form targets. */
+/** F opens, Esc closes, Cmd/Ctrl+Enter sends. Ride adapters ignore form targets. */
 export function mountFeedbackHotkey(bus: EventBus): () => void {
   const onKey = (event: KeyboardEvent) => {
-    if (event.repeat || event.metaKey || event.ctrlKey || event.altKey) {
+    if (event.repeat || event.altKey) {
+      return;
+    }
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      bus.emit('feedback:close', null);
+      return;
+    }
+    if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+      if (!isTypingTarget(event.target)) {
+        return;
+      }
+      event.preventDefault();
+      bus.emit('feedback:send', null);
+      return;
+    }
+    if (event.metaKey || event.ctrlKey) {
       return;
     }
     if (event.code !== 'KeyF' && event.key !== 'f' && event.key !== 'F') {

@@ -15,6 +15,8 @@ import {
 import {
   FEEDBACK_STORE_KEY,
   buildFeedbackPayload,
+  flushStashedFeedback,
+  readStash,
   submitFeedback,
   validateFeedbackDraft,
 } from '../src/ui/submit';
@@ -199,7 +201,7 @@ describe('feedback submit', () => {
     expect(saved[0].speed).toBe(5);
   });
 
-  it('POSTs the typed intent to a configured endpoint', async () => {
+  it('POSTs the typed intent to a configured endpoint and drains the stash', async () => {
     const fetchImpl = vi.fn(async (url: string, init?: RequestInit) => {
       expect(url).toBe('https://asgard.example/intake');
       const body = JSON.parse(String(init?.body));
@@ -207,18 +209,55 @@ describe('feedback submit', () => {
       expect(body.kind).toBe(INTENT_KIND.playerFeedback);
       return { ok: true };
     }) as unknown as typeof fetch;
+    const payload = buildFeedbackPayload({
+      message: 'go faster forever',
+      name: '',
+      featureIdea: false,
+      snapshot: emptySnapshot(() => '2026-01-01T00:00:00.000Z'),
+    });
+    const result = await submitFeedback(payload, {
+      endpoint: 'https://asgard.example/intake',
+      fetchImpl,
+    });
+    expect(result.ok).toBe(true);
+    expect(result.via).toBe('api');
+    expect(fetchImpl).toHaveBeenCalledOnce();
+    expect(readStash()).toEqual([]);
+  });
+
+  it('surfaces HTTP 400 as failure and does not stash', async () => {
+    const fetchImpl = vi.fn(async () => ({ ok: false, status: 400 })) as unknown as typeof fetch;
     const result = await submitFeedback(
       buildFeedbackPayload({
-        message: 'go faster forever',
+        message: 'too short after server trim maybe not',
         name: '',
         featureIdea: false,
         snapshot: emptySnapshot(() => '2026-01-01T00:00:00.000Z'),
       }),
-      { endpoint: 'https://asgard.example/intake', fetchImpl },
+      { fetchImpl },
     );
-    expect(result.ok).toBe(true);
-    expect(result.via).toBe('api');
-    expect(fetchImpl).toHaveBeenCalledOnce();
+    expect(result.ok).toBe(false);
+    expect(result.via).toBe('rejected');
+    expect(readStash()).toEqual([]);
+  });
+
+  it('flushes stashed notes on boot and drops 4xx leftovers', async () => {
+    const offline = await submitFeedback(
+      buildFeedbackPayload({
+        message: 'save me for later',
+        name: 'Sam',
+        featureIdea: false,
+        snapshot: emptySnapshot(() => '2026-01-01T00:00:00.000Z'),
+      }),
+    );
+    expect(offline.via).toBe('local');
+    expect(readStash()).toHaveLength(1);
+
+    const fetchImpl = vi.fn(async () => ({ ok: true, status: 200 })) as unknown as typeof fetch;
+    const flushed = await flushStashedFeedback({ fetchImpl });
+    expect(flushed.sent).toBe(1);
+    expect(flushed.left).toBe(0);
+    expect(JSON.parse(localStorage.getItem(FEEDBACK_STORE_KEY) || '[]')).toEqual([]);
   });
 });
 

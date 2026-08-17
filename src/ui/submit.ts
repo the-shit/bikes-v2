@@ -18,7 +18,8 @@ export type FeedbackPayload = FeedbackIntent;
 
 export type SubmitResult = {
   ok: boolean;
-  via: 'api' | 'local';
+  via: 'api' | 'local' | 'rejected';
+  error?: string;
 };
 
 export type DraftCheck = {
@@ -55,27 +56,39 @@ export function buildFeedbackPayload(input: {
   return buildFeedbackIntent(input);
 }
 
-function persistLocal(payload: FeedbackPayload): void {
+export function readStash(): FeedbackPayload[] {
   try {
     const prev = JSON.parse(
       localStorage.getItem(FEEDBACK_STORE_KEY) || '[]',
     ) as FeedbackPayload[];
-    const next = Array.isArray(prev) ? prev : [];
-    const rest = { ...payload };
-    delete rest.screenshot;
-    next.push(rest);
-    localStorage.setItem(FEEDBACK_STORE_KEY, JSON.stringify(next.slice(-50)));
+    return Array.isArray(prev) ? prev : [];
   } catch {
-    /* quota / missing storage */
+    return [];
   }
+}
+
+function writeStash(items: FeedbackPayload[]): void {
+  try {
+    localStorage.setItem(FEEDBACK_STORE_KEY, JSON.stringify(items.slice(-50)));
+  } catch {
+    /* quota */
+  }
+}
+
+function stashPayload(payload: FeedbackPayload): void {
+  const rest = { ...payload };
+  delete rest.screenshot;
+  writeStash(readStash().filter((item) => item.id !== rest.id).concat(rest));
+}
+
+function unstashId(id: string): void {
+  writeStash(readStash().filter((item) => item.id !== id));
 }
 
 export async function submitFeedback(
   payload: FeedbackPayload,
   opts: { endpoint?: string; fetchImpl?: typeof fetch } = {},
 ): Promise<SubmitResult> {
-  persistLocal(payload);
-
   const endpoint = opts.endpoint ?? resolveFeedbackEndpoint();
   const fetchImpl = opts.fetchImpl ?? globalThis.fetch;
   try {
@@ -85,13 +98,48 @@ export async function submitFeedback(
       body: JSON.stringify(payload),
     });
     if (res.ok) {
+      unstashId(payload.id);
       return { ok: true, via: 'api' };
     }
+    if (res.status >= 500) {
+      stashPayload(payload);
+    }
+    return { ok: false, via: 'rejected', error: `HTTP ${res.status}` };
   } catch {
-    /* offline / vite-dev without the farm */
+    stashPayload(payload);
+    return { ok: true, via: 'local' };
   }
+}
 
-  return { ok: true, via: 'local' };
+export async function flushStashedFeedback(
+  opts: { endpoint?: string; fetchImpl?: typeof fetch } = {},
+): Promise<{ sent: number; left: number }> {
+  const endpoint = opts.endpoint ?? resolveFeedbackEndpoint();
+  const fetchImpl = opts.fetchImpl ?? globalThis.fetch;
+  const items = readStash();
+  if (items.length === 0) {
+    return { sent: 0, left: 0 };
+  }
+  const left: FeedbackPayload[] = [];
+  let sent = 0;
+  for (const item of items) {
+    try {
+      const res = await fetchImpl(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(item),
+      });
+      if (res.ok) {
+        sent += 1;
+      } else if (res.status >= 500) {
+        left.push(item);
+      }
+    } catch {
+      left.push(item);
+    }
+  }
+  writeStash(left);
+  return { sent, left: left.length };
 }
 
 export function getStoredPlayerName(): string {

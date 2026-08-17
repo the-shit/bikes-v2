@@ -5,6 +5,17 @@
 
 export const PUBLIC_URL_DEFAULT = 'https://bikes-v2.jordanpartridge.us';
 
+export function isTypedIntent(data) {
+  return Boolean(
+    data &&
+      data.schema === 'bikes.v2.intent' &&
+      Number(data.schemaVersion) === 1 &&
+      typeof data.id === 'string' &&
+      data.id.length > 0 &&
+      (data.kind === 'player_feedback' || data.kind === 'feature_idea'),
+  );
+}
+
 export function intentText(data) {
   if (typeof data.text === 'string' && data.text.trim()) {
     return data.text;

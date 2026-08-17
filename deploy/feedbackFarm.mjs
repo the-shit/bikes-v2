@@ -11,6 +11,7 @@ import {
   intentText,
   shouldFileGitHubIssue,
 } from './feedbackFormat.mjs';
+import { appendJsonl, jsonlHasId, patchJsonlById } from './jsonl.mjs';
 
 export { PUBLIC_URL_DEFAULT } from './feedbackFormat.mjs';
 export const MAX_SCREENSHOT_BYTES = 1_500_000;
@@ -163,11 +164,14 @@ export function createFeedbackFarm({
       'User-Agent': 'BikesV2-feedback-farm',
       'Content-Type': 'application/json',
     };
+    const timeoutMs = Number(env.FEEDBACK_FETCH_TIMEOUT_MS) || 8000;
     try {
+      const signal = AbortSignal.timeout(timeoutMs);
       let res = await fetchImpl(`https://api.github.com/repos/${ghRepo}/issues`, {
         method: 'POST',
         headers,
         body: JSON.stringify({ title, body, labels }),
+        signal,
       });
       let json = await res.json().catch(() => ({}));
       if (res.status === 422 && labels.length) {
@@ -175,6 +179,7 @@ export function createFeedbackFarm({
           method: 'POST',
           headers,
           body: JSON.stringify({ title, body }),
+          signal,
         });
         json = await res.json().catch(() => ({}));
       }
@@ -191,6 +196,7 @@ export function createFeedbackFarm({
     if (!mmEnabled) {
       return { ok: false, skipped: true, error: 'mattermost not configured' };
     }
+    const timeoutMs = Number(env.FEEDBACK_FETCH_TIMEOUT_MS) || 8000;
     try {
       const res = await fetchImpl(`${mmUrl}/api/v4/posts`, {
         method: 'POST',
@@ -202,6 +208,7 @@ export function createFeedbackFarm({
           channel_id: mmChannel,
           message: formatMattermostMessage(data, issue),
         }),
+        signal: AbortSignal.timeout(timeoutMs),
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -226,6 +233,10 @@ export async function ingestFeedback(data, ctx) {
   }
 
   const record = pickRecord(data, ctx.ip);
+  if (record.id && jsonlHasId(ctx.feedbackFile, record.id)) {
+    return { status: 200, body: { ok: true, duplicate: true } };
+  }
+
   if (typeof data.screenshot === 'string') {
     const name = saveScreenshot(data.screenshot, ctx.screenshotsDir);
     if (name) {
@@ -237,6 +248,8 @@ export async function ingestFeedback(data, ctx) {
     }
   }
 
+  appendJsonl(ctx.feedbackFile, record);
+
   const farm = ctx.farm;
   const gh = farm
     ? await farm.createGitHubIssue(record)
@@ -247,10 +260,11 @@ export async function ingestFeedback(data, ctx) {
   if (gh.ok) {
     record.githubIssue = gh.number;
     record.githubUrl = gh.html_url;
+    patchJsonlById(ctx.feedbackFile, record.id, {
+      githubIssue: gh.number,
+      githubUrl: gh.html_url,
+    });
   }
-
-  fs.mkdirSync(path.dirname(ctx.feedbackFile), { recursive: true });
-  fs.appendFileSync(ctx.feedbackFile, `${JSON.stringify(record)}\n`, 'utf8');
 
   const mm = farm
     ? await farm.postToMattermost(
