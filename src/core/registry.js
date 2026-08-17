@@ -4,25 +4,32 @@
  * Budget: keep this file under ~300 lines.
  */
 
-export type EntityId = number;
+/**
+ * @typedef {number} EntityId
+ */
 
-export type System = {
-  name: string;
-  tick: (dt: number) => void;
-};
+/**
+ * @typedef {object} System
+ * @property {string} name
+ * @property {(dt: number) => void} tick
+ */
 
-export type Registry = {
-  spawn(): EntityId;
-  despawn(id: EntityId): void;
-  has(id: EntityId): boolean;
-  addSystem(system: System): void;
-  tick(dt: number): void;
-};
+/**
+ * @typedef {object} Registry
+ * @property {() => EntityId} spawn
+ * @property {(id: EntityId) => void} despawn
+ * @property {(id: EntityId) => boolean} has
+ * @property {(system: System) => void} addSystem
+ * @property {(dt: number) => void} tick
+ */
 
-export function createRegistry(): Registry {
+/** @returns {Registry} */
+export function createRegistry() {
   let next = 1;
-  const entities = new Set<EntityId>();
-  const systems: System[] = [];
+  /** @type {Set<EntityId>} */
+  const entities = new Set();
+  /** @type {System[]} */
+  const systems = [];
 
   return {
     spawn() {

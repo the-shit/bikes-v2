@@ -4,11 +4,16 @@
  * Budget: keep this file under ~300 lines.
  */
 
-export type FpsHud = {
-  update(fps: number): void;
-};
+/**
+ * @typedef {object} FpsHud
+ * @property {(fps: number) => void} update
+ */
 
-export function createFpsHud(el: HTMLElement): FpsHud {
+/**
+ * @param {HTMLElement} el
+ * @returns {FpsHud}
+ */
+export function createFpsHud(el) {
   return {
     update(fps) {
       const shown = fps > 0 ? fps.toFixed(0) : '—';

@@ -4,14 +4,15 @@
  * Budget: keep this file under ~300 lines.
  */
 
-import { idleIntent, type Intent } from './intents';
+import { idleIntent } from './intents.js';
 
-export type GamepadAdapter = {
-  sample(): Intent;
-};
+/**
+ * @typedef {object} GamepadAdapter
+ * @property {() => import('./intents.js').Intent} sample
+ */
 
-/** Stub. M5. */
-export function createGamepadAdapter(): GamepadAdapter {
+/** Stub. M5. @returns {GamepadAdapter} */
+export function createGamepadAdapter() {
   return {
     sample() {
       return idleIntent();

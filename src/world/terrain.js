@@ -4,12 +4,13 @@
  * Budget: keep this file under ~300 lines.
  */
 
-export type Terrain = {
-  sampleHeight(x: number, z: number): number;
-};
+/**
+ * @typedef {object} Terrain
+ * @property {(x: number, z: number) => number} sampleHeight
+ */
 
-/** Stub. M3. */
-export function createTerrain(): Terrain {
+/** Stub. M3. @returns {Terrain} */
+export function createTerrain() {
   return {
     sampleHeight() {
       return 0;

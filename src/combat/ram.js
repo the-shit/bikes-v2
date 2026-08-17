@@ -4,11 +4,12 @@
  * Budget: keep this file under ~300 lines.
  */
 
-export type RamHit = {
-  damage: number;
-};
+/**
+ * @typedef {object} RamHit
+ * @property {number} damage
+ */
 
-/** Stub. M1. */
-export function ramDamage(_speed: number): RamHit {
+/** Stub. M1. @param {number} _speed @returns {RamHit} */
+export function ramDamage(_speed) {
   return { damage: 0 };
 }

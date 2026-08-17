@@ -4,14 +4,15 @@
  * Budget: keep this file under ~300 lines.
  */
 
-import { idleIntent, type Intent } from './intents';
+import { idleIntent } from './intents.js';
 
-export type TouchAdapter = {
-  sample(): Intent;
-};
+/**
+ * @typedef {object} TouchAdapter
+ * @property {() => import('./intents.js').Intent} sample
+ */
 
-/** Stub. M5. */
-export function createTouchAdapter(): TouchAdapter {
+/** Stub. M5. @returns {TouchAdapter} */
+export function createTouchAdapter() {
   return {
     sample() {
       return idleIntent();

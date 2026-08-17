@@ -9,20 +9,23 @@ export const MAX_FRAME_DT = 0.05;
 export const MAX_STEPS = 5;
 export const FPS_WINDOW = 0.5;
 
-export type LoopHandlers = {
-  tick: (dt: number) => void;
-  render: (alpha: number, state: LoopState) => void;
-};
+/**
+ * @typedef {object} LoopState
+ * @property {number} accumulator
+ * @property {number} simTime
+ * @property {number} fps
+ * @property {number} frames
+ * @property {number} fpsWindow
+ */
 
-export type LoopState = {
-  accumulator: number;
-  simTime: number;
-  fps: number;
-  frames: number;
-  fpsWindow: number;
-};
+/**
+ * @typedef {object} LoopHandlers
+ * @property {(dt: number) => void} tick
+ * @property {(alpha: number, state: LoopState) => void} render
+ */
 
-export function createLoop(): LoopState {
+/** @returns {LoopState} */
+export function createLoop() {
   return {
     accumulator: 0,
     simTime: 0,
@@ -32,11 +35,13 @@ export function createLoop(): LoopState {
   };
 }
 
-export function advanceLoop(
-  state: LoopState,
-  frameDt: number,
-  handlers: LoopHandlers,
-): LoopState {
+/**
+ * @param {LoopState} state
+ * @param {number} frameDt
+ * @param {LoopHandlers} handlers
+ * @returns {LoopState}
+ */
+export function advanceLoop(state, frameDt, handlers) {
   const dt = Math.min(MAX_FRAME_DT, Math.max(0, frameDt));
   state.accumulator += dt;
   state.fpsWindow += dt;

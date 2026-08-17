@@ -5,12 +5,15 @@
  */
 
 import * as THREE from 'three';
-import { advanceLoop, createLoop } from './core/loop';
-import { createFpsHud } from './ui/fps';
+import { advanceLoop, createLoop } from './core/loop.js';
+import { createFpsHud } from './ui/fps.js';
 
 const BOOT_ERROR_ID = 'boot-error';
 
-function showBootError(message: string): void {
+/**
+ * @param {string} message
+ */
+function showBootError(message) {
   let el = document.getElementById(BOOT_ERROR_ID);
   if (!el) {
     el = document.createElement('div');
@@ -33,7 +36,8 @@ function showBootError(message: string): void {
   el.textContent = message;
 }
 
-function detectFileProtocol(): boolean {
+/** @returns {boolean} */
+function detectFileProtocol() {
   if (typeof location !== 'undefined' && location.protocol === 'file:') {
     showBootError(
       'Bikes v2 needs a local server. Run: npm install && npm run dev',
@@ -43,10 +47,12 @@ function detectFileProtocol(): boolean {
   return false;
 }
 
-export function createApp(
-  canvas: HTMLCanvasElement,
-  fpsEl: HTMLElement,
-): { stop(): void } {
+/**
+ * @param {HTMLCanvasElement} canvas
+ * @param {HTMLElement} fpsEl
+ * @returns {{ stop: () => void }}
+ */
+export function createApp(canvas, fpsEl) {
   const renderer = new THREE.WebGLRenderer({
     canvas,
     antialias: true,
@@ -87,7 +93,7 @@ export function createApp(
   let running = true;
   let raf = 0;
 
-  function resize(): void {
+  function resize() {
     const w = Math.max(1, canvas.clientWidth || window.innerWidth);
     const h = Math.max(1, canvas.clientHeight || window.innerHeight);
     renderer.setSize(w, h, false);
@@ -95,11 +101,17 @@ export function createApp(
     camera.updateProjectionMatrix();
   }
 
-  function tick(dt: number): void {
+  /**
+   * @param {number} dt
+   */
+  function tick(dt) {
     origin.rotation.y += dt;
   }
 
-  function frame(now: number): void {
+  /**
+   * @param {number} now
+   */
+  function frame(now) {
     if (!running) {
       return;
     }
@@ -108,7 +120,7 @@ export function createApp(
     last = now;
     advanceLoop(loop, frameDt, {
       tick,
-      render(_alpha) {
+      render() {
         fps.update(loop.fps);
         renderer.render(scene, camera);
       },
@@ -129,7 +141,7 @@ export function createApp(
   };
 }
 
-function boot(): void {
+function boot() {
   if (detectFileProtocol()) {
     return;
   }

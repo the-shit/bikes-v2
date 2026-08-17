@@ -4,18 +4,20 @@
  * Budget: keep this file under ~300 lines.
  */
 
-export type Intent = {
-  throttle: number;
-  steer: number;
-  brake: number;
-  lookX: number;
-  lookY: number;
-  fire: boolean;
-  melee: boolean;
-  mount: boolean;
-};
+/**
+ * @typedef {object} Intent
+ * @property {number} throttle
+ * @property {number} steer
+ * @property {number} brake
+ * @property {number} lookX
+ * @property {number} lookY
+ * @property {boolean} fire
+ * @property {boolean} melee
+ * @property {boolean} mount
+ */
 
-export function idleIntent(): Intent {
+/** @returns {Intent} */
+export function idleIntent() {
   return {
     throttle: 0,
     steer: 0,
@@ -28,7 +30,11 @@ export function idleIntent(): Intent {
   };
 }
 
-export function clampAxis(value: number): number {
+/**
+ * @param {number} value
+ * @returns {number}
+ */
+export function clampAxis(value) {
   if (value > 1) {
     return 1;
   }

@@ -6,12 +6,12 @@ import {
   MAX_STEPS,
   advanceLoop,
   createLoop,
-} from '../src/core/loop';
+} from '../src/core/loop.js';
 
 describe('fixed-timestep loop', () => {
   it('ticks once when the frame equals the step', () => {
-    const ticks: number[] = [];
-    const renders: number[] = [];
+    const ticks = [];
+    const renders = [];
     const state = createLoop();
     advanceLoop(state, FIXED_DT, {
       tick: (dt) => ticks.push(dt),
