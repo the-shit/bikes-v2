@@ -72,5 +72,25 @@ if [ "$deploy_changed" -eq 1 ]; then
     fi
 fi
 
+BIN_AUTO="${HOME}/.local/bin/bikes-v2-auto-deploy.sh"
+if [ -x "$SRC_DEPLOY/auto-deploy.sh" ]; then
+    mkdir -p "$(dirname "$BIN_AUTO")"
+    if [ ! -f "$BIN_AUTO" ] || ! cmp -s "$SRC_DEPLOY/auto-deploy.sh" "$BIN_AUTO"; then
+        install -m 755 "$SRC_DEPLOY/auto-deploy.sh" "$BIN_AUTO"
+        log "Updated $BIN_AUTO"
+    fi
+fi
+
+CARD="$SRC_DEPLOY/deployCard.mjs"
+if [ -x "$NODE_BIN" ] && [ -f "$CARD" ]; then
+    set +e
+    "$NODE_BIN" "$CARD" --from "${BIKES_V2_DEPLOY_FROM:-none}" --to "$(git rev-parse HEAD)" --repo "$BIKES_V2_SRC"
+    card_status=$?
+    set -e
+    if [ "$card_status" -ne 0 ]; then
+        log "deploy card failed (exit $card_status)"
+    fi
+fi
+
 log "Deploy complete ($COMMIT). Live index:"
 grep -o 'index-[^"]*\.js' "$LIVE_DIST/index.html" | head -1 || true

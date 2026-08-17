@@ -39,6 +39,7 @@ feedback + todo 520 — do not invent extra required fields):
 | snapshot: `position`, `speed`, `build` / milestone build id | yes (once 520 ships) | game-state at capture |
 | `timestamp` or `receivedAt` | yes | when captured / received |
 | `name`, `featureIdea`, `context`, `githubIssue`, `githubUrl` | optional | v1 widget leftovers; keep if present |
+| `source` | optional | `mattermost` for #bikes-v2 posts; F-Widget lines omit it or use the widget path |
 
 Accept either a nested `context` / `snapshot` object or top-level keys.
 Copy the snapshot into the Solo todo body so builders can reproduce the

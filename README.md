@@ -65,6 +65,15 @@ Manual ship:
 
 Autodeploy polls `origin/main` every minute (`bikes-v2-autodeploy.timer`).
 
+## #bikes-v2 (Mattermost)
+
+Pit-crew channel on the same Mattermost as v1. F-Widget notes and human posts in **#bikes-v2** both land in `feedback.jsonl` (`source=mattermost` for channel posts). Autodeploy posts a “ready to test” card there when a new sha goes live.
+
+**Decisions of record** get posted to **#bikes-v2** by the orchestrator.
+
+Env (server-only, not in git): `~/Sites/bikes-v2/.env.mattermost`  
+(`MATTERMOST_URL`, `MATTERMOST_BOT_TOKEN`, `MATTERMOST_BIKES_CHANNEL_ID` — v2’s own channel, not v1’s `#bikes-feedback`).
+
 ## PR flow
 
 Work lands on `main` via pull request. Do not push gameplay to `main` directly.
