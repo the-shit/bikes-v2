@@ -14,6 +14,12 @@ is the schema SoT). Widget/port todo **520**. Receipt skill:
 
 ## Intake files
 
+`feedback.jsonl` is **interim**. Final routing is **Asgard intake**
+(Decisions addendum: widget POSTs typed intents to Asgard; Solo todos
++ Lexi briefs; GitHub is downstream). Do not build new consumers that
+hard-require the jsonl path. When Asgard 496/497 lands, swap the
+resolver below — same triage/dedupe/close steps, new source.
+
 Resolve in this order (first that exists wins as the live intake):
 
 1. `$BIKES_V2_FEEDBACK_FILE` if set

@@ -13,8 +13,9 @@ Working dir: `~/Sites/bikes-v2`. GitHub: `the-shit/bikes-v2`. Solo project **21*
 
 Source of truth: scratchpad `bikes-v2-master-plan` (id **457**). Read it
 (especially Pillars, Architecture, Input & portability, Orchestration
-protocol, **Quality + feedback**) before touching code. Then read your
-assigned todo **with comments**.
+protocol, **Quality + feedback**, **Continuous deploy**, **Decisions
+addendum**) before touching code. Then read your assigned todo **with
+comments**.
 
 ## Assignment loop
 
@@ -25,7 +26,12 @@ assigned todo **with comments**.
 4. Implement **and tests**. Every PR ships tests for the systems it
    touches (Vitest or whatever M0 wired). Run them locally (`npm test`
    / `npm run quality`). Do not open the PR red. Receipt `Test:` names
-   the command and pass/fail. PR to `main`. No AI attribution.
+   the command and pass/fail. PR to `main`. Merge **is** deploy: the
+   Odin autodeploy timer polls `origin/main` every minute
+   (`bikes-v2-autodeploy.timer`) and ships
+   https://bikes-v2.jordanpartridge.us. Do not run deploy scripts
+   yourself. Receipt `Deploy:` is `merge → live` (or blocked). No AI
+   attribution.
 5. Read `.claude/skills/receipt/SKILL.md` and follow it: comment the receipt
    on the todo, tag `review`, do **not** complete the todo.
 6. `todo_unlock` when you stop (unless a lease should stay for a follow-up
@@ -48,13 +54,23 @@ One todo per assignment. No drive-by refactors. No "while I'm here".
   they would be convenient.
 - **Tests with every PR.** No gameplay/system change without tests for
   that change. CI red blocks merge — fix before asking for review.
+- **Tone: campy, family-safe.** Goofy zombies, cartoon hits, no gore.
+  Kids can play. Constrains art, audio, writing, and zombie design.
+- **AI boundary.** AI is async/server-side via Asgard only (feedback
+  triage, NPC dialogue+memory, flip narration/radio, horde director,
+  Lexi ride briefs). **Never** in physics, input, collision, combat
+  resolution, or the frame loop. Game stays fully playable AI-off with
+  canned fallbacks.
+- **Co-op-ready state.** No netcode in v2 milestones, but world / rider
+  / sim stay separable. No singleton-player assumptions (one global
+  rider, one camera owner baked into systems).
 
 ## Out of scope
 
 - Talking to Jordan (orchestrator does that).
 - Changing the master plan.
 - Completing or reassigning other todos.
-- Deploying unless the todo says to.
+- Manual deploys — merge to `main` is the ship.
 
 If bootstrap (repo / Vite / `main`) is missing, comment that blocker on your
 todo and stop. Do not steal M0's git-init / GitHub-create work.
