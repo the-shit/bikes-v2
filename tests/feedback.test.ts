@@ -8,6 +8,11 @@ import {
   formatSnapshotLine,
 } from '../src/ui/snapshot';
 import {
+  INTENT_KIND,
+  INTENT_SCHEMA,
+  resolveFeedbackEndpoint,
+} from '../src/ui/intent';
+import {
   FEEDBACK_STORE_KEY,
   buildFeedbackPayload,
   submitFeedback,
@@ -46,13 +51,37 @@ describe('feedback snapshot + serialize', () => {
       featureIdea: false,
       snapshot: snap,
     });
+    expect(payload.schema).toBe(INTENT_SCHEMA);
+    expect(payload.schemaVersion).toBe(1);
+    expect(payload.kind).toBe(INTENT_KIND.playerFeedback);
+    expect(payload.id).toMatch(/^[0-9a-f-]{36}$|^fb-/);
+    expect(payload.game).toBe('bikes-v2');
+    expect(payload.text).toBe('cube is lonely');
     expect(payload.message).toBe('cube is lonely');
     expect(payload.build).toBe('abc1234');
     expect(payload.timestamp).toBe('2026-08-16T00:00:00.000Z');
     expect(payload.position).toEqual({ x: 8, y: 6, z: 12 });
     expect(payload.speed).toBe(10);
-    expect(payload.context.buildId).toBe('abc1234');
+    expect(payload.snapshot.buildId).toBe('abc1234');
     expect(payload.context.street).toBe('East Jan Avenue');
+  });
+
+  it('tags feature ideas as a distinct intent kind', () => {
+    const payload = buildFeedbackPayload({
+      message: 'add a dirt jump',
+      name: 'Alex',
+      featureIdea: true,
+      snapshot: emptySnapshot(() => '2026-08-16T00:00:00.000Z'),
+    });
+    expect(payload.kind).toBe(INTENT_KIND.featureIdea);
+    expect(payload.featureIdea).toBe(true);
+  });
+
+  it('resolves the Asgard swap from VITE_FEEDBACK_URL', () => {
+    expect(resolveFeedbackEndpoint({})).toBe('/api/feedback');
+    expect(
+      resolveFeedbackEndpoint({ VITE_FEEDBACK_URL: 'https://asgard.example/intake/' }),
+    ).toBe('https://asgard.example/intake');
   });
 
   it('formats a readable snapshot line', () => {
@@ -164,12 +193,20 @@ describe('feedback submit', () => {
     const saved = JSON.parse(localStorage.getItem(FEEDBACK_STORE_KEY) || '[]');
     expect(saved).toHaveLength(1);
     expect(saved[0].message).toMatch(/dirt jump/);
+    expect(saved[0].text).toMatch(/dirt jump/);
+    expect(saved[0].kind).toBe(INTENT_KIND.featureIdea);
     expect(saved[0].build).toBe('dev');
     expect(saved[0].speed).toBe(5);
   });
 
-  it('reports api via when fetch succeeds', async () => {
-    globalThis.fetch = vi.fn(async () => ({ ok: true })) as unknown as typeof fetch;
+  it('POSTs the typed intent to a configured endpoint', async () => {
+    const fetchImpl = vi.fn(async (url: string, init?: RequestInit) => {
+      expect(url).toBe('https://asgard.example/intake');
+      const body = JSON.parse(String(init?.body));
+      expect(body.schema).toBe(INTENT_SCHEMA);
+      expect(body.kind).toBe(INTENT_KIND.playerFeedback);
+      return { ok: true };
+    }) as unknown as typeof fetch;
     const result = await submitFeedback(
       buildFeedbackPayload({
         message: 'go faster forever',
@@ -177,9 +214,11 @@ describe('feedback submit', () => {
         featureIdea: false,
         snapshot: emptySnapshot(() => '2026-01-01T00:00:00.000Z'),
       }),
+      { endpoint: 'https://asgard.example/intake', fetchImpl },
     );
     expect(result.ok).toBe(true);
     expect(result.via).toBe('api');
+    expect(fetchImpl).toHaveBeenCalledOnce();
   });
 });
 

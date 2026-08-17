@@ -1,35 +1,20 @@
 /**
- * Ownership: serialize + POST /api/feedback, with localStorage fallback.
- * Talks via: payload only. Do not import bike/world.
+ * Ownership: POST typed feedback intent, with localStorage fallback.
+ * Talks via: payload only. Endpoint from VITE_FEEDBACK_URL (Asgard later).
  * Budget: keep this file under ~300 lines.
  */
 
+import {
+  buildFeedbackIntent,
+  resolveFeedbackEndpoint,
+  type FeedbackIntent,
+} from './intent';
 import type { RideSnapshot } from './snapshot';
 
 export const FEEDBACK_STORE_KEY = 'bikes-v2-feedback';
 export const PLAYER_NAME_KEY = 'bikes-v2-player-name';
 
-export type FeedbackPayload = {
-  message: string;
-  name: string | null;
-  featureIdea: boolean;
-  timestamp: string;
-  build: string;
-  position: RideSnapshot['position'];
-  speed: number | null;
-  href: string;
-  ua: string;
-  context: {
-    position: RideSnapshot['position'];
-    speed: number | null;
-    street: string | null;
-    lat: number | null;
-    lon: number | null;
-    pressure: number | null;
-    buildId: string;
-  };
-  screenshot?: string;
-};
+export type FeedbackPayload = FeedbackIntent;
 
 export type SubmitResult = {
   ok: boolean;
@@ -49,10 +34,10 @@ export function validateFeedbackDraft(input: {
   const message = input.message.trim();
   const name = input.name.trim();
   if (message.length < 3) {
-    return { ok: false, error: 'Say a bit more…' };
+    return { ok: false, error: 'Give us a little more juice…' };
   }
   if (input.featureIdea && name.length < 1) {
-    return { ok: false, error: 'Add a name to claim credit' };
+    return { ok: false, error: 'Need a handle to hang on the idea' };
   }
   return { ok: true };
 }
@@ -65,33 +50,9 @@ export function buildFeedbackPayload(input: {
   screenshot?: string | null;
   href?: string;
   ua?: string;
+  id?: string;
 }): FeedbackPayload {
-  const name = input.name.trim().slice(0, 32) || null;
-  const snap = input.snapshot;
-  const payload: FeedbackPayload = {
-    message: input.message.trim().slice(0, 2000),
-    name,
-    featureIdea: Boolean(input.featureIdea),
-    timestamp: snap.at,
-    build: snap.buildId,
-    position: snap.position,
-    speed: snap.speed,
-    href: input.href ?? '',
-    ua: input.ua ?? '',
-    context: {
-      position: snap.position,
-      speed: snap.speed,
-      street: snap.street,
-      lat: snap.lat,
-      lon: snap.lon,
-      pressure: snap.pressure,
-      buildId: snap.buildId,
-    },
-  };
-  if (input.screenshot) {
-    payload.screenshot = input.screenshot;
-  }
-  return payload;
+  return buildFeedbackIntent(input);
 }
 
 function persistLocal(payload: FeedbackPayload): void {
@@ -111,11 +72,14 @@ function persistLocal(payload: FeedbackPayload): void {
 
 export async function submitFeedback(
   payload: FeedbackPayload,
+  opts: { endpoint?: string; fetchImpl?: typeof fetch } = {},
 ): Promise<SubmitResult> {
   persistLocal(payload);
 
+  const endpoint = opts.endpoint ?? resolveFeedbackEndpoint();
+  const fetchImpl = opts.fetchImpl ?? globalThis.fetch;
   try {
-    const res = await fetch('/api/feedback', {
+    const res = await fetchImpl(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),

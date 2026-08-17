@@ -38,6 +38,8 @@ git checkout --quiet "$BRANCH" 2>/dev/null || git checkout --quiet -B "$BRANCH" 
 git reset --hard "origin/${BRANCH}" --quiet
 COMMIT=$(git rev-parse --short HEAD)
 export VITE_GIT_SHA="$COMMIT"
+# Asgard swap is config-only: set VITE_FEEDBACK_URL to the intake URL when it exists.
+# Default (unset) is same-origin POST /api/feedback on this box.
 log "Building $COMMIT ($(git log -1 --pretty=format:'%s')) with $($NODE_BIN -v)"
 
 "$NPM_BIN" ci --no-audit --no-fund

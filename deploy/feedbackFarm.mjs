@@ -8,6 +8,7 @@ import crypto from 'node:crypto';
 import {
   formatGitHubIssue,
   formatMattermostMessage,
+  intentText,
   shouldFileGitHubIssue,
 } from './feedbackFormat.mjs';
 
@@ -72,19 +73,63 @@ export function saveScreenshot(dataUrl, screenshotsDir) {
 }
 
 function pickRecord(data, ip) {
-  const name = typeof data.name === 'string' ? data.name.trim().slice(0, 32) : '';
+  const text = intentText(data).slice(0, 2000);
+  const nameRaw =
+    typeof data.riderName === 'string'
+      ? data.riderName
+      : typeof data.name === 'string'
+        ? data.name
+        : '';
+  const name = nameRaw.trim().slice(0, 32);
+  const snapshot =
+    data.snapshot && typeof data.snapshot === 'object' ? data.snapshot : null;
   const context =
-    data.context && typeof data.context === 'object' ? data.context : {};
+    data.context && typeof data.context === 'object'
+      ? data.context
+      : snapshot || {};
+  const featureIdea = Boolean(data.featureIdea || data.kind === 'feature_idea');
+  const client = data.client && typeof data.client === 'object' ? data.client : {};
   return {
-    message: String(data.message).slice(0, 2000),
+    schema: typeof data.schema === 'string' ? data.schema : 'bikes.v2.intent',
+    schemaVersion: Number(data.schemaVersion) || 1,
+    kind: featureIdea ? 'feature_idea' : 'player_feedback',
+    id: typeof data.id === 'string' ? data.id.slice(0, 80) : null,
+    game: typeof data.game === 'string' ? data.game.slice(0, 32) : 'bikes-v2',
+    text,
+    message: text,
     name: name || null,
-    featureIdea: Boolean(data.featureIdea),
-    timestamp: typeof data.timestamp === 'string' ? data.timestamp : null,
+    riderName: name || null,
+    featureIdea,
+    timestamp:
+      typeof data.sentAt === 'string'
+        ? data.sentAt
+        : typeof data.timestamp === 'string'
+          ? data.timestamp
+          : null,
     build: typeof data.build === 'string' ? data.build.slice(0, 64) : null,
-    position: data.position && typeof data.position === 'object' ? data.position : null,
-    speed: typeof data.speed === 'number' ? data.speed : null,
-    href: typeof data.href === 'string' ? data.href.slice(0, 500) : null,
-    ua: typeof data.ua === 'string' ? data.ua.slice(0, 300) : null,
+    position:
+      (data.position && typeof data.position === 'object' && data.position) ||
+      (snapshot && snapshot.position) ||
+      null,
+    speed:
+      typeof data.speed === 'number'
+        ? data.speed
+        : snapshot && typeof snapshot.speed === 'number'
+          ? snapshot.speed
+          : null,
+    snapshot,
+    href:
+      typeof data.href === 'string'
+        ? data.href.slice(0, 500)
+        : typeof client.href === 'string'
+          ? client.href.slice(0, 500)
+          : null,
+    ua:
+      typeof data.ua === 'string'
+        ? data.ua.slice(0, 300)
+        : typeof client.ua === 'string'
+          ? client.ua.slice(0, 300)
+          : null,
     context,
     receivedAt: new Date().toISOString(),
     ip: ip || null,
@@ -176,7 +221,7 @@ export function createFeedbackFarm({
 }
 
 export async function ingestFeedback(data, ctx) {
-  if (!data || typeof data.message !== 'string' || data.message.trim().length < 2) {
+  if (!data || intentText(data).trim().length < 2) {
     return { status: 400, body: { ok: false, error: 'message required' } };
   }
 

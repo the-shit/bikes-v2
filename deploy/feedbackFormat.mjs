@@ -5,6 +5,13 @@
 
 export const PUBLIC_URL_DEFAULT = 'https://bikes-v2.jordanpartridge.us';
 
+export function intentText(data) {
+  if (typeof data.text === 'string' && data.text.trim()) {
+    return data.text;
+  }
+  return String(data.message || '');
+}
+
 export function rideContextLine(data) {
   const ctx = data.context && typeof data.context === 'object' ? data.context : {};
   const bits = [];
@@ -38,7 +45,7 @@ export function rideContextLine(data) {
 export function formatMattermostMessage(data, issue = null) {
   const name = data.name ? String(data.name).slice(0, 32) : 'Anonymous';
   const idea = data.featureIdea ? ' · **feature idea** (credit if shipped)' : '';
-  const msg = String(data.message || '').slice(0, 2000);
+  const msg = intentText(data).slice(0, 2000);
   const lines = [
     `#### Bikes v2 feedback`,
     `**${name}**${idea}`,
@@ -59,8 +66,8 @@ export function formatMattermostMessage(data, issue = null) {
 
 export function formatGitHubIssue(data) {
   const name = data.name ? String(data.name).slice(0, 32) : 'Anonymous';
-  const msg = String(data.message || '').trim().slice(0, 2000);
-  const idea = Boolean(data.featureIdea);
+  const msg = intentText(data).trim().slice(0, 2000);
+  const idea = Boolean(data.featureIdea || data.kind === 'feature_idea');
   const short = msg.length > 72 ? `${msg.slice(0, 69)}…` : msg;
   const title = idea
     ? `[idea] ${short}`.slice(0, 100)
@@ -98,9 +105,7 @@ export function formatGitHubIssue(data) {
 }
 
 export function shouldFileGitHubIssue(data) {
-  const msg = String(data.message || '')
-    .trim()
-    .toLowerCase();
+  const msg = intentText(data).trim().toLowerCase();
   if (msg.length < 3) {
     return false;
   }

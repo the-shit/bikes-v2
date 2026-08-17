@@ -34,29 +34,29 @@ export function createFeedback(
   wrap.id = 'feedback-root';
   wrap.innerHTML = `
     <button type="button" class="fb-open" data-fb-open aria-haspopup="dialog">
-      Feedback
+      Got a note?
     </button>
-    <div class="fb-modal" data-fb-modal hidden role="dialog" aria-modal="true" aria-label="Send feedback">
+    <div class="fb-modal" data-fb-modal hidden role="dialog" aria-modal="true" aria-label="Note to the pit crew">
       <div class="fb-card">
         <header>
-          <strong>Feedback &amp; ideas</strong>
+          <strong>Note to the pit crew</strong>
           <button type="button" class="fb-x" data-fb-close aria-label="Close">×</button>
         </header>
         <label class="fb-field">
-          <span>Your name <em>(for credit if we build it)</em></span>
+          <span>Your handle <em>(for glory if we build it)</em></span>
           <input type="text" data-fb-name maxlength="32" placeholder="e.g. Alex" autocomplete="nickname" />
         </label>
         <label class="fb-field">
-          <span>Message</span>
-          <textarea data-fb-text rows="4" maxlength="2000" placeholder="Bug, vibe, or idea — F opens, Esc closes, WASD types here"></textarea>
+          <span>What's up?</span>
+          <textarea data-fb-text rows="4" maxlength="2000" placeholder="Wobbly bike? Missing a jump? Type it — F opens, Esc closes, WASD works here"></textarea>
         </label>
         <label class="fb-check">
           <input type="checkbox" data-fb-idea />
-          <span>This is a feature idea — credit me if it ships</span>
+          <span>This is a wild idea — paint my name on it if it ships</span>
         </label>
         <div class="fb-meta" data-fb-meta></div>
         <footer>
-          <button type="button" class="fb-send" data-fb-send>Send</button>
+          <button type="button" class="fb-send" data-fb-send>Send it</button>
           <span class="fb-status" data-fb-status></span>
         </footer>
       </div>
@@ -159,21 +159,21 @@ export function createFeedback(
       ua: typeof navigator !== 'undefined' ? navigator.userAgent : '',
     });
 
-    status.textContent = 'Sending…';
+    status.textContent = 'Pedaling it over…';
     const result = await submitFeedback(payload);
     bus.emit('feedback:submitted', result);
     if (result.ok) {
       status.textContent =
         result.via === 'api'
           ? name
-            ? `Sent — thanks, ${name}!`
-            : 'Sent — thanks!'
-          : 'Saved on this device (offline)';
+            ? `Got it — thanks, ${name}!`
+            : 'Got it — the pit crew is on it!'
+          : 'Stashed on this device till we find a signal';
       text.value = '';
       ideaCheck.checked = false;
       setTimeout(close, 1400);
     } else {
-      status.textContent = 'Could not send — try again';
+      status.textContent = 'Whoops — try one more toss';
     }
   }
 

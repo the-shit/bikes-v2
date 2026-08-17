@@ -184,6 +184,44 @@ describe('screenshot + ingest', () => {
     expect(line.githubUrl).toMatch(/issues\/7/);
   });
 
+  it('ingests a typed intent that only has text (no v1 message)', async () => {
+    const dir = tmpDir();
+    const result = await ingestFeedback(
+      {
+        schema: 'bikes.v2.intent',
+        schemaVersion: 1,
+        kind: 'player_feedback',
+        id: '11111111-1111-1111-1111-111111111111',
+        game: 'bikes-v2',
+        text: 'the cube should spin the other way',
+        riderName: 'Jordan',
+        sentAt: '2026-08-16T00:00:00.000Z',
+        build: 'deadbeef',
+        snapshot: {
+          position: { x: 8, y: 6, z: 12 },
+          speed: 0,
+          buildId: 'deadbeef',
+          at: '2026-08-16T00:00:00.000Z',
+        },
+        client: { href: 'https://bikes-v2.jordanpartridge.us/', ua: 'test' },
+      },
+      {
+        feedbackFile: path.join(dir, 'feedback.jsonl'),
+        screenshotsDir: path.join(dir, 'shots'),
+        farm: createFeedbackFarm({ env: {} }),
+      },
+    );
+    expect(result.status).toBe(200);
+    const line = JSON.parse(fs.readFileSync(path.join(dir, 'feedback.jsonl'), 'utf8').trim());
+    expect(line.schema).toBe('bikes.v2.intent');
+    expect(line.kind).toBe('player_feedback');
+    expect(line.id).toBe('11111111-1111-1111-1111-111111111111');
+    expect(line.text).toMatch(/cube/);
+    expect(line.message).toMatch(/cube/);
+    expect(line.build).toBe('deadbeef');
+    expect(line.position).toEqual({ x: 8, y: 6, z: 12 });
+  });
+
   it('rejects a missing message', async () => {
     const dir = tmpDir();
     const result = await ingestFeedback(
