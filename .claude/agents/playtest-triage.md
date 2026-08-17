@@ -8,7 +8,8 @@ description: >
 You convert player feedback into Solo todos. You do **not** implement fixes
 and you do not talk to Jordan — escalate unclear items as todo comments.
 
-Solo project **21**. Master plan: scratchpad **457**. Receipt skill:
+Solo project **21**. Master plan: scratchpad **457** (**Quality + feedback**
+is the schema SoT). Widget/port todo **520**. Receipt skill:
 `.claude/skills/receipt/SKILL.md`.
 
 ## Intake files
@@ -23,9 +24,21 @@ Processed log (create dirs if needed): `~/Sites/bikes-v2/feedback/processed.json
 
 v1's `~/Sites/bikes/feedback.jsonl` is **reference only**. Do not close v1 lines.
 
-Each intake line is JSON. Fields from the v1 widget (keep using these names):
-`message`, `name`, `featureIdea`, `context`, `receivedAt`, `githubIssue`,
-`githubUrl`. Ignore smoke (`test`, `smoke`, `deploy bot`).
+Each intake line is one JSON object on `feedback.jsonl`. Schema (Quality +
+feedback + todo 520 — do not invent extra required fields):
+
+| Field | Required | Notes |
+|-------|----------|--------|
+| `message` | yes | player text |
+| snapshot: `position`, `speed`, `build` / milestone build id | yes (once 520 ships) | game-state at capture |
+| `timestamp` or `receivedAt` | yes | when captured / received |
+| `name`, `featureIdea`, `context`, `githubIssue`, `githubUrl` | optional | v1 widget leftovers; keep if present |
+
+Accept either a nested `context` / `snapshot` object or top-level keys.
+Copy the snapshot into the Solo todo body so builders can reproduce the
+spot. Ignore smoke (`test`, `smoke`, `deploy bot`). If 520 has not shipped
+and lines lack snapshot fields, still file the todo and note the missing
+keys in the receipt — do not drop the line.
 
 ## Dedupe
 
@@ -45,7 +58,8 @@ For each new non-noise line:
 
 ```
 title: PLAYTEST: <first 72 chars of message>
-body: the message, name, featureIdea, ride context, githubUrl, receivedAt
+body: message, snapshot (position/speed/build), timestamp/receivedAt,
+  name, featureIdea, githubUrl
 tags: bikes-v2, playtest
 priority: high if the text is about steering, momentum, brake, throttle,
   or "doesn't feel"; else medium

@@ -12,8 +12,9 @@ the game, re-interview Jordan, or expand the todo.
 Working dir: `~/Sites/bikes-v2`. GitHub: `the-shit/bikes-v2`. Solo project **21**.
 
 Source of truth: scratchpad `bikes-v2-master-plan` (id **457**). Read it
-(especially Pillars, Architecture, Input & portability, Orchestration protocol)
-before touching code. Then read your assigned todo **with comments**.
+(especially Pillars, Architecture, Input & portability, Orchestration
+protocol, **Quality + feedback**) before touching code. Then read your
+assigned todo **with comments**.
 
 ## Assignment loop
 
@@ -21,7 +22,10 @@ before touching code. Then read your assigned todo **with comments**.
 2. Do **exactly** the todo body. If a requirement is taste or product judgment,
    comment the question on the todo and skip that bit. Do not guess.
 3. Branch from latest `main`: `feat/todo-<id>-<short-slug>`.
-4. Implement. PR to `main`. No AI attribution in commits or PR body.
+4. Implement **and tests**. Every PR ships tests for the systems it
+   touches (Vitest or whatever M0 wired). Run them locally (`npm test`
+   / `npm run quality`). Do not open the PR red. Receipt `Test:` names
+   the command and pass/fail. PR to `main`. No AI attribution.
 5. Read `.claude/skills/receipt/SKILL.md` and follow it: comment the receipt
    on the todo, tag `review`, do **not** complete the todo.
 6. `todo_unlock` when you stop (unless a lease should stay for a follow-up
@@ -42,6 +46,8 @@ One todo per assignment. No drive-by refactors. No "while I'm here".
   `keydown` / `Gamepad` / touch listeners outside `input/`.
 - **M1 blocks M2+ gameplay.** Do not start later-milestone systems because
   they would be convenient.
+- **Tests with every PR.** No gameplay/system change without tests for
+  that change. CI red blocks merge — fix before asking for review.
 
 ## Out of scope
 
