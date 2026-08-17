@@ -4,7 +4,7 @@
  * Budget: keep this file under ~300 lines.
  */
 
-export type ChargeKind = 'garage' | 'circlek';
+export type ChargeKind = 'garage' | 'circlek' | 'landmark';
 
 export type ChargePoint = {
   id: string;
@@ -80,14 +80,39 @@ export function chargeHint(
 ): string {
   const here = nearCharge(x, z, points);
   if (here) {
-    return here.kind === 'circlek'
-      ? 'Circle K slushie juice in range'
-      : 'Garage charger in range';
+    if (here.kind === 'circlek') {
+      return 'Circle K slushie juice in range';
+    }
+    if (here.kind === 'landmark') {
+      return `${here.name} juice in range`;
+    }
+    return 'Garage charger in range';
   }
-  const ck = points.find((p) => p.kind === 'circlek');
-  if (!ck) {
+  const far = nearestNamed(x, z, points);
+  if (!far) {
     return '';
   }
-  const d = Math.hypot(x - ck.x, z - ck.z);
-  return `CK ${d.toFixed(0)}m`;
+  const d = Math.hypot(x - far.x, z - far.z);
+  const tag = far.kind === 'circlek' ? 'CK' : far.name;
+  return `${tag} ${d.toFixed(0)}m`;
+}
+
+function nearestNamed(
+  x: number,
+  z: number,
+  points: readonly ChargePoint[],
+): ChargePoint | null {
+  let best: ChargePoint | null = null;
+  let bestD = Infinity;
+  for (const p of points) {
+    if (p.kind === 'garage') {
+      continue;
+    }
+    const d = Math.hypot(x - p.x, z - p.z);
+    if (d < bestD) {
+      best = p;
+      bestD = d;
+    }
+  }
+  return best;
 }

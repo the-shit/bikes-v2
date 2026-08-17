@@ -3,8 +3,10 @@ import { createSession } from '../src/core/session';
 import type { RiderSpawn } from '../src/core/rider';
 import { idleIntent } from '../src/input/intents';
 import { garageChargePoint } from '../src/world/charge';
-import { createTerrain } from '../src/world/terrain';
+import { FLIP } from '../src/world/flip';
 import { HOME_CAMERA_BLOCKERS_LOCAL } from '../src/world/home';
+import { createStory } from '../src/world/story';
+import { createTerrain } from '../src/world/terrain';
 import { SHAMBLER } from '../src/zombies/ai';
 
 const DT = 1 / 60;
@@ -228,5 +230,29 @@ describe('session bike systems', () => {
     expect(refill.snapshot().bikes[0].battery.charge).toBeCloseTo(0.2);
     refill.tick(DT, { 1: idleIntent() });
     expect(refill.snapshot().bikes[0].battery.charge).toBe(1);
+  });
+
+  it('holds shamblers until the flip lands', () => {
+    const session = createSession({
+      riders: [{ id: 1, x: 0, z: 0, yaw: 0 }],
+      terrain: createTerrain(),
+      cameraFrame: { x: 0, z: 0, faceYaw: 0 },
+      blockers: HOME_CAMERA_BLOCKERS_LOCAL,
+      shamblerPins: [{ x: 4, z: 4 }],
+      story: createStory({ tutorial: false }),
+    });
+    expect(session.snapshot().zombies).toHaveLength(0);
+    expect(session.snapshot().story.flip.phase).toBe('pre');
+    session.beginFlip();
+    session.tick(DT, { 1: idleIntent() });
+    expect(session.snapshot().story.flip.phase).toBe('turning');
+    expect(session.snapshot().zombies).toHaveLength(0);
+    const frames = Math.ceil(FLIP.turnDuration / DT) + 2;
+    for (let i = 0; i < frames; i += 1) {
+      session.tick(DT, { 1: idleIntent() });
+    }
+    const snap = session.snapshot();
+    expect(snap.story.flip.phase).toBe('post');
+    expect(snap.zombies).toHaveLength(1);
   });
 });
