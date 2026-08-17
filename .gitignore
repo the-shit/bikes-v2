@@ -10,4 +10,5 @@ coverage/
 .vscode/
 *.local
 tmp/
+*.blend1
 *.tsbuildinfo
