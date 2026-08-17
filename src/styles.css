@@ -1,0 +1,28 @@
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: #1a1410;
+  overflow: hidden;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+#game {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+#fps {
+  position: fixed;
+  top: 10px;
+  left: 10px;
+  z-index: 2;
+  padding: 4px 8px;
+  color: #e8dcc8;
+  background: rgba(12, 10, 8, 0.55);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  pointer-events: none;
+  user-select: none;
+}
