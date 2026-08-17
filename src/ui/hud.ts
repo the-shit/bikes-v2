@@ -10,6 +10,7 @@ import { swingArc } from '../combat/melee';
 import type { RiderId } from '../core/rider';
 import type { SessionSnapshot } from '../core/session';
 import { chargeHint, type ChargePoint } from '../world/charge';
+import { storyLine } from '../world/story';
 
 export type Hud = {
   update(snap: SessionSnapshot, riderId: RiderId, fps: number): void;
@@ -28,12 +29,14 @@ export function createHud(
         <span class="wep-state" data-wep-state>ready</span>
       </div>
     </div>
+    <div class="story" data-story hidden></div>
     <div class="ride-line" data-ride></div>
     <div class="lock-banner" data-lock hidden>LOCKED! ★</div>
     <div class="lock-hint">F note · R remount · Q lock · drag / pad ride</div>
   `;
   const weapon = el.querySelector('[data-weapon]') as HTMLElement;
   const wepState = el.querySelector('[data-wep-state]') as HTMLElement;
+  const storyEl = el.querySelector('[data-story]') as HTMLElement;
   const ride = el.querySelector('[data-ride]') as HTMLElement;
   const lockBanner = el.querySelector('[data-lock]') as HTMLElement;
 
@@ -90,6 +93,10 @@ export function createHud(
       lockBanner.hidden = !locked;
       lockBanner.dataset.flair = rider.lock.flairT > 0 ? '1' : '0';
       lockBanner.textContent = rider.lock.flairT > 0.4 ? 'LOCKED! ★' : 'locked on';
+      const line = storyLine(snap.story);
+      storyEl.hidden = !line;
+      storyEl.textContent = line;
+      storyEl.dataset.phase = snap.story.flip.phase;
     },
   };
 }

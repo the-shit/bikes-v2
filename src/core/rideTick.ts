@@ -18,6 +18,7 @@ import { applyChargeProfile, profileFor } from '../bike/service';
 import { repairTires, stepTires, type Hazard } from '../bike/tires';
 import { idleIntent, type Intent } from '../input/intents';
 import { nearCharge, type ChargePoint } from '../world/charge';
+import { tryRampLaunch, type Ramp } from '../world/jumps';
 import {
   stepRiderMotion,
   withToast,
@@ -37,6 +38,7 @@ export function stepRideWorld(
   heightAt: (x: number, z: number) => number,
   hazards: readonly Hazard[] = [],
   chargePoints: readonly ChargePoint[] = [],
+  ramps: readonly Ramp[] = [],
 ): RideWorld {
   let bikes = world.bikes.map((b) => ({ ...b }));
   let riders = world.riders.map((rider) => {
@@ -65,6 +67,24 @@ export function stepRideWorld(
       const toast = tires.toast || batt.toast;
       if (toast) {
         next = withToast(next, toast);
+      }
+    }
+    if (mounted && ramps.length) {
+      const launched = tryRampLaunch(
+        next.air,
+        next.bike,
+        ramps,
+        heightAt(next.bike.x, next.bike.z),
+      );
+      if (launched) {
+        next = withToast(
+          {
+            ...next,
+            air: launched.air,
+            bike: { ...next.bike, y: launched.y, speed: launched.speed },
+          },
+          launched.toast,
+        );
       }
     }
     return next;

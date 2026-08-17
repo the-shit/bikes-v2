@@ -16,6 +16,14 @@ import { idleIntent, type Intent } from '../input/intents';
 import type { CameraFrame } from '../world/camera';
 import type { ChargePoint } from '../world/charge';
 import type { Box3 } from '../world/home';
+import { beginFlip } from '../world/flip';
+import type { Ramp } from '../world/jumps';
+import {
+  createStory,
+  storySample,
+  stepWorldStory,
+  type WorldStory,
+} from '../world/story';
 import type { Terrain } from '../world/terrain';
 import { stepZombieAi, type Shambler } from '../zombies/ai';
 import { seedShamblers } from '../zombies/spawn';
@@ -33,38 +41,20 @@ import {
   type RiderId,
   type RiderSpawn,
 } from './rider';
+import {
+  toSnapshot,
+  type AudioCue,
+  type HitEvent,
+  type SessionSnapshot,
+} from './snap';
 
-export type HitEvent = {
-  riderId: RiderId;
-  id: number;
-  kind: 'melee' | 'ram';
-  damage: number;
-  killed: boolean;
-};
-
-export type RiderSnapshot = Omit<
-  Rider,
-  | 'prevMelee'
-  | 'prevHop'
-  | 'prevLock'
-  | 'prevMount'
-  | 'prevRepair'
-  | 'prevAssistUp'
-  | 'prevAssistDown'
-  | 'toastT'
->;
-
-export type SessionSnapshot = {
-  riders: RiderSnapshot[];
-  bikes: WorldBike[];
-  zombies: Shambler[];
-  hitstopT: number;
-};
+export type { AudioCue, HitEvent, RiderSnapshot, SessionSnapshot } from './snap';
 
 export type Session = {
   bus: EventBus;
   tick(dt: number, intents: Readonly<Record<RiderId, Intent>>): void;
   snapshot(): SessionSnapshot;
+  beginFlip(): void;
 };
 
 const HIT_TOAST = {
@@ -82,11 +72,16 @@ export function createSession(opts: {
   shamblerPins: { x: number; z: number }[];
   hazards?: readonly Hazard[];
   chargePoints?: readonly ChargePoint[];
+  ramps?: readonly Ramp[];
+  story?: WorldStory;
 }): Session {
   const bus = createBus();
   const heightAt = (x: number, z: number) => opts.terrain.sampleHeight(x, z);
   const hazards = opts.hazards ?? [];
   const chargePoints = opts.chargePoints ?? [];
+  const ramps = opts.ramps ?? [];
+  let story = opts.story ?? createStory({ flipped: true });
+  let pendingFlip = false;
   let riders = opts.riders.map((spawn) =>
     createRider(spawn, heightAt, opts.cameraFrame, opts.blockers),
   );
@@ -109,7 +104,10 @@ export function createSession(opts: {
       }
       return { ...bike, battery: createBattery({ charge: spawn.charge }) };
     });
-  let zombies = seedShamblers(opts.shamblerPins, heightAt);
+  let zombies =
+    story.flip.phase === 'post'
+      ? seedShamblers(opts.shamblerPins, heightAt)
+      : [];
   let hitstopT = 0;
 
   function hurt(
@@ -172,7 +170,30 @@ export function createSession(opts: {
 
   return {
     bus,
+    beginFlip() {
+      pendingFlip = true;
+    },
     tick(dt, intents) {
+      if (pendingFlip) {
+        story = { ...story, flip: beginFlip(story.flip) };
+        pendingFlip = false;
+      }
+      const steppedStory = stepWorldStory(
+        story,
+        dt,
+        storySample(riders, intents, chargePoints, dt),
+      );
+      story = steppedStory.story;
+      if (steppedStory.seedZombies && zombies.length === 0) {
+        zombies = seedShamblers(opts.shamblerPins, heightAt);
+      }
+      if (steppedStory.toast) {
+        riders = riders.map((r) => withToast(r, steppedStory.toast as string));
+      }
+      for (const id of steppedStory.cues) {
+        bus.emit<AudioCue>('audio.cue', { id });
+      }
+
       riders = riders.map((rider) =>
         stepRiderLock(rider, intents[rider.id] ?? idleIntent(), zombies, dt),
       );
@@ -204,6 +225,7 @@ export function createSession(opts: {
         heightAt,
         hazards,
         chargePoints,
+        ramps,
       );
       riders = stepped.riders;
       bikes = stepped.bikes;
@@ -249,35 +271,7 @@ export function createSession(opts: {
       );
     },
     snapshot() {
-      return {
-        riders: riders.map((r) => ({
-          id: r.id,
-          bike: { ...r.bike },
-          air: { ...r.air },
-          melee: { ...r.melee },
-          camera: {
-            position: { ...r.camera.position },
-            lookAt: { ...r.camera.lookAt },
-          },
-          toast: r.toast,
-          kills: r.kills,
-          impactFlashT: r.impactFlashT,
-          ramShakeT: r.ramShakeT,
-          ramLinesT: r.ramLinesT,
-          lock: { ...r.lock },
-          mountedBikeId: r.mountedBikeId,
-          lastBikeId: r.lastBikeId,
-        })),
-        bikes: bikes.map((b) => ({
-          ...b,
-          pose: { ...b.pose },
-          air: { ...b.air },
-          battery: { ...b.battery },
-          tires: { ...b.tires },
-        })),
-        zombies: zombies.map((z) => ({ ...z })),
-        hitstopT,
-      };
+      return toSnapshot(riders, bikes, zombies, hitstopT, story);
     },
   };
 }

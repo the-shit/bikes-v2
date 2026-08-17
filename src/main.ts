@@ -1,5 +1,5 @@
 /**
- * Ownership: boot Jan Ave slice + intent-driven session + chase cam + feedback.
+ * Ownership: boot Mesa playfield + flip story + intent-driven session.
  * Talks via: session snapshot and feedback events. No raw key handling.
  * Budget: keep this file under ~300 lines.
  */
@@ -20,7 +20,9 @@ import { createFpsHud } from './ui/fps';
 import { createHud } from './ui/hud';
 import { bindFeedbackSnapshot } from './ui/snapshot';
 import { loadMesaBake } from './world/osm';
-import { buildJanSlice } from './world/slice';
+import { buildMesaPlay } from './world/mesa';
+import { flipSkin } from './world/skin';
+import { createStory } from './world/story';
 import { createWorldView } from './world/view';
 
 const BOOT_ERROR_ID = 'boot-error';
@@ -54,18 +56,20 @@ export async function createApp(
   hudEl: HTMLElement,
 ): Promise<{ stop(): void }> {
   const bake = await loadMesaBake();
-  const slice = buildJanSlice(bake);
+  const play = buildMesaPlay(bake);
   const localRiderId = 1;
   const session = createSession({
-    riders: [{ id: localRiderId, ...slice.spawn }],
-    terrain: slice.terrain,
-    cameraFrame: slice.cameraFrame,
-    blockers: slice.blockers,
-    shamblerPins: slice.shamblerPins,
-    hazards: slice.hazards,
-    chargePoints: slice.chargePoints,
+    riders: [{ id: localRiderId, ...play.spawn }],
+    terrain: play.terrain,
+    cameraFrame: play.cameraFrame,
+    blockers: play.blockers,
+    shamblerPins: play.shamblerPins,
+    hazards: play.hazards,
+    chargePoints: play.chargePoints,
+    ramps: play.ramps,
+    story: createStory({ tutorial: true }),
   });
-  const view = createWorldView(slice);
+  const view = createWorldView(play);
   view.sync(session.snapshot());
 
   const renderer = new THREE.WebGLRenderer({
@@ -81,12 +85,12 @@ export async function createApp(
   scene.fog = new THREE.Fog(0xc9b89a, 80, 280);
   scene.add(view.group);
 
-  const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 600);
+  const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 1800);
   const keys = createKeyboardAdapter(window);
   const pad = createGamepadAdapter();
   const touch = createTouchAdapter(canvas);
   const fps = createFpsHud(fpsEl);
-  const hud = createHud(hudEl, slice.chargePoints);
+  const hud = createHud(hudEl, play.chargePoints);
   const bus = createBus();
   const feedback = createFeedback(document.body, bus);
   const unsubHotkey = mountFeedbackHotkey(bus);
@@ -101,7 +105,7 @@ export async function createApp(
         ? { x: rider.bike.x, y: rider.bike.y, z: rider.bike.z }
         : null,
       speed: rider ? rider.bike.speed : 0,
-      street: slice.jan?.name ?? null,
+      street: play.jan?.name ?? null,
       lat: null,
       lon: null,
       pressure: pack ? pack.tires.pressure : null,
@@ -151,6 +155,10 @@ export async function createApp(
       tick,
       render() {
         const snap = session.snapshot();
+        const skin = flipSkin(snap.story.flip);
+        scene.background = new THREE.Color(skin.sky);
+        scene.fog = new THREE.Fog(skin.fog, skin.fogNear, skin.fogFar);
+        renderer.setClearColor(skin.sky, 1);
         view.sync(snap);
         applyCamera();
         hud.update(snap, localRiderId, loop.fps);
