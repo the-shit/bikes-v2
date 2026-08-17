@@ -102,6 +102,37 @@ body {
   background: rgba(255, 248, 230, 0.72);
 }
 
+#hud .lock-banner {
+  align-self: flex-start;
+  padding: 6px 14px;
+  background: #ff66cc;
+  color: #1a1410;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  transform: rotate(-4deg);
+  box-shadow: 3px 3px 0 #ffe566;
+}
+
+#hud .lock-banner[data-flair='1'] {
+  animation: lock-pop 0.35s ease-out;
+}
+
+#hud .lock-hint {
+  padding: 2px 6px;
+  font-size: 10px;
+  opacity: 0.7;
+  background: rgba(255, 248, 230, 0.55);
+}
+
+@keyframes lock-pop {
+  from {
+    transform: rotate(-8deg) scale(1.35);
+  }
+  to {
+    transform: rotate(-4deg) scale(1);
+  }
+}
+
 #feedback-root {
   position: fixed;
   right: 1rem;

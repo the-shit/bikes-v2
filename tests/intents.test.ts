@@ -17,6 +17,7 @@ describe('intents', () => {
       fire: false,
       melee: false,
       hop: false,
+      lock: false,
       mount: false,
     });
   });
@@ -38,7 +39,10 @@ describe('intents', () => {
     expect(intent.steer).toBe(1);
     expect(intent.hop).toBe(true);
     expect(intent.melee).toBe(true);
+    expect(intent.lock).toBe(false);
     expect(intent.brake).toBe(0);
+    setKey(state, 'Tab', true);
+    expect(sampleInput(state).lock).toBe(true);
     setKey(state, 'Space', true);
     expect(sampleInput(state).brake).toBe(1);
   });

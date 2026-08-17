@@ -23,10 +23,13 @@ export function createHud(el: HTMLElement): Hud {
       </div>
     </div>
     <div class="ride-line" data-ride></div>
+    <div class="lock-banner" data-lock hidden>LOCKED! ★</div>
+    <div class="lock-hint">Tab / Q lock-on</div>
   `;
   const weapon = el.querySelector('[data-weapon]') as HTMLElement;
   const wepState = el.querySelector('[data-wep-state]') as HTMLElement;
   const ride = el.querySelector('[data-ride]') as HTMLElement;
+  const lockBanner = el.querySelector('[data-lock]') as HTMLElement;
 
   return {
     update(snap, riderId, fps) {
@@ -61,6 +64,10 @@ export function createHud(el: HTMLElement): Hud {
       weapon.dataset.ready = swing.ready ? '1' : '0';
       weapon.dataset.swing = swing.swinging ? '1' : '0';
       weapon.dataset.hit = rider.impactFlashT > 0 ? '1' : '0';
+      const locked = rider.lock.targetId != null;
+      lockBanner.hidden = !locked;
+      lockBanner.dataset.flair = rider.lock.flairT > 0 ? '1' : '0';
+      lockBanner.textContent = rider.lock.flairT > 0.4 ? 'LOCKED! ★' : 'locked on';
     },
   };
 }

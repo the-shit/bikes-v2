@@ -11,6 +11,7 @@ export const DEFAULT_BINDINGS = Object.freeze({
   brake: ['KeyS', 'ArrowDown', 'Space'],
   hop: ['ShiftLeft', 'ShiftRight'],
   melee: ['KeyE'],
+  lock: ['Tab', 'KeyQ'],
   steerLeft: ['KeyA', 'ArrowLeft'],
   steerRight: ['KeyD', 'ArrowRight'],
 });
@@ -63,5 +64,6 @@ export function sampleInput(state: InputState): Intent {
     steer: clampAxis(steer),
     hop: any(bindings.hop),
     melee: any(bindings.melee),
+    lock: any(bindings.lock),
   };
 }

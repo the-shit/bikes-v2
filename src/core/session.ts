@@ -6,6 +6,7 @@
 
 import { applyDamage, isDead } from '../combat/damage';
 import { FEEDBACK, hitImpulse } from '../combat/feedback';
+import { lockSteerAssist, maintainLock } from '../combat/lock';
 import { isMeleeActive, markStruck, meleeHits, MELEE } from '../combat/melee';
 import { RAM, ramDamage, ramHits } from '../combat/ram';
 import { idleIntent, type Intent } from '../input/intents';
@@ -19,6 +20,7 @@ import {
   createRider,
   decayRiderFx,
   stepRiderCamera,
+  stepRiderLock,
   stepRiderMotion,
   withImpact,
   withToast,
@@ -35,7 +37,10 @@ export type HitEvent = {
   killed: boolean;
 };
 
-export type RiderSnapshot = Omit<Rider, 'prevMelee' | 'prevHop' | 'toastT'>;
+export type RiderSnapshot = Omit<
+  Rider,
+  'prevMelee' | 'prevHop' | 'prevLock' | 'toastT'
+>;
 
 export type SessionSnapshot = {
   riders: RiderSnapshot[];
@@ -132,6 +137,15 @@ export function createSession(opts: {
   return {
     bus,
     tick(dt, intents) {
+      riders = riders.map((rider) =>
+        stepRiderLock(
+          rider,
+          intents[rider.id] ?? idleIntent(),
+          zombies,
+          dt,
+        ),
+      );
+
       if (hitstopT > 0) {
         hitstopT = Math.max(0, hitstopT - dt);
         riders = riders.map((rider) =>
@@ -143,14 +157,14 @@ export function createSession(opts: {
         return;
       }
 
-      riders = riders.map((rider) =>
-        stepRiderMotion(
-          rider,
-          intents[rider.id] ?? idleIntent(),
-          dt,
-          heightAt,
-        ),
-      );
+      riders = riders.map((rider) => {
+        const intent = intents[rider.id] ?? idleIntent();
+        const locked = zombies.find(
+          (z) => z.id === rider.lock.targetId && !z.dead,
+        );
+        const steer = lockSteerAssist(rider.bike, locked ?? null, intent.steer);
+        return stepRiderMotion(rider, { ...intent, steer }, dt, heightAt);
+      });
 
       for (const rider of riders) {
         if (isMeleeActive(rider.melee) && !rider.melee.struck) {
@@ -180,9 +194,15 @@ export function createSession(opts: {
         return { ...next, y: heightAt(next.x, next.z) };
       });
 
-      riders = riders.map((rider) =>
-        stepRiderCamera(rider, dt, opts.cameraFrame, opts.blockers),
-      );
+      riders = riders.map((rider) => {
+        const held = maintainLock(rider.lock, rider.bike, zombies, 0);
+        return stepRiderCamera(
+          { ...rider, lock: held.lock },
+          dt,
+          opts.cameraFrame,
+          opts.blockers,
+        );
+      });
     },
     snapshot() {
       return {
@@ -200,6 +220,7 @@ export function createSession(opts: {
           impactFlashT: r.impactFlashT,
           ramShakeT: r.ramShakeT,
           ramLinesT: r.ramLinesT,
+          lock: { ...r.lock },
         })),
         zombies: zombies.map((z) => ({ ...z })),
         hitstopT,

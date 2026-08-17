@@ -128,4 +128,29 @@ describe('session combat proof', () => {
     session.tick(DT, { 1: idleIntent() });
     expect(session.snapshot().zombies[0].z).toBeGreaterThan(zAtHit);
   });
+
+  it('Tab-cycles a lock and drops it when the shambler is bonked out', () => {
+    const session = makeSession([
+      { x: 0, z: 6 },
+      { x: 2, z: 10 },
+    ]);
+    session.tick(DT, { 1: { ...idleIntent(), lock: true } });
+    const first = session.snapshot().riders[0].lock.targetId;
+    expect(first).not.toBeNull();
+    session.tick(DT, { 1: idleIntent() });
+    session.tick(DT, { 1: { ...idleIntent(), lock: true } });
+    const second = session.snapshot().riders[0].lock.targetId;
+    expect(second).not.toBe(first);
+    const locked = makeSession([{ x: 0, z: 1.6 }]);
+    locked.tick(DT, { 1: { ...idleIntent(), lock: true } });
+    expect(locked.snapshot().riders[0].lock.targetId).not.toBeNull();
+    for (let swing = 0; swing < 3; swing += 1) {
+      locked.tick(DT, { 1: { ...idleIntent(), melee: true } });
+      for (let i = 0; i < 40; i += 1) {
+        locked.tick(DT, { 1: idleIntent() });
+      }
+    }
+    expect(locked.snapshot().zombies[0].dead).toBe(true);
+    expect(locked.snapshot().riders[0].lock.targetId).toBeNull();
+  });
 });
