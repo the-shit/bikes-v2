@@ -32,7 +32,7 @@ export function createHud(
     <div class="story" data-story hidden></div>
     <div class="ride-line" data-ride></div>
     <div class="lock-banner" data-lock hidden>LOCKED! ★</div>
-    <div class="lock-hint">F note · R remount · Q lock-on</div>
+    <div class="lock-hint">F note · R remount · Q lock · drag / pad ride</div>
   `;
   const weapon = el.querySelector('[data-weapon]') as HTMLElement;
   const wepState = el.querySelector('[data-wep-state]') as HTMLElement;
