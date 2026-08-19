@@ -10,6 +10,7 @@ coverage/
 .vscode/
 *.local
 tmp/
+tools/models/*/refs/_wip/
 *.blend1
 __pycache__/
 *.pyc
